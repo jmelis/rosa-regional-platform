@@ -62,7 +62,65 @@ The Account Provisioning pipelines are the class of pipelines that are to be run
 
 ### Example Account Creation Sequence Diagram
 
-TODO
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Engineer as SRE / Engineer
+    
+    box "Central Account" #f9f9f9
+        participant Pipe_Create as Region Creation Pipeline
+        participant Pipe_Boot as Account Bootstrap Pipeline
+        participant Pipe_Prov as RC/MC Provision Pipeline
+        participant S3 as S3 State Bucket
+    end
+
+    box "Root / Payer Account" #fff0e6
+        participant Minting as Account Minter Role
+        participant Bootstrap as Account Bootstrap Role
+    end
+
+    box "Regional Account" #e6ffe6
+        participant TargetAcct as Regional Account
+        participant OrgAdmin as OrgAccountAdmin Role
+        participant TFRole as Terraform Role
+        participant Resources as AWS Resources (ROSA)
+    end
+
+    %% Phase 1: Account Creation (Blue Flow)
+    Note over Engineer, TargetAcct: Pipeline 1: Account Minting
+    Engineer->>Pipe_Create: Trigger Region Creation
+    Pipe_Create-->>Minting: Assume Role
+    activate Minting
+    Minting->>Minting: Create Region OU
+    Minting->>Minting: Create Regional Cluster Account
+    Minting->>Minting: Create MC Account 0, 1
+    Minting-->>Pipe_Create: Account Created Success
+    deactivate Minting
+
+    %% Phase 2: Bootstrapping (Orange Flow)
+    Note over Engineer, TargetAcct: Pipeline 2: Account Bootstrap (per Account)
+    Pipe_Create->>Pipe_Boot: Trigger Account Bootstrapping (Optional)
+    Pipe_Boot-->>Bootstrap: Assume Role
+    Bootstrap-->>OrgAdmin: Assume Role
+    activate OrgAdmin
+    OrgAdmin->>TFRole: Create & Configure TF Role
+    OrgAdmin-->>Pipe_Boot: Bootstrap Success
+    deactivate OrgAdmin
+    Pipe_Boot-->>Pipe_Create: Bootstrap Complete
+
+    %% Phase 3: Resource Provisioning (Green Flow)
+    Note over Engineer, TargetAcct: Phase 3: Infrastructure Deployment
+    Pipe_Create->>Pipe_Prov: Trigger Account Provisioning (optional)
+    Pipe_Prov->>S3: Read Terraform State
+    Pipe_Prov-->>TFRole: Assume Role
+    activate TFRole
+    TFRole->>Resources: Apply TF for Regional Cluster
+    TFRole->>Resources: Apply Helm/ArgoCD
+    TFRole-->>Pipe_Prov: Deployment Success
+    deactivate TFRole
+    Pipe_Prov->>S3: Update Terraform State
+    Pipe_Prov-->>Pipe_Create: Account Provision Success
+```
 
 ## Alternatives Considered
 
