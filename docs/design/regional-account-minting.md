@@ -124,7 +124,7 @@ sequenceDiagram
 
 ## Alternatives Considered
 
-1. **AWS Control Tower**: AWS Cont;rol Tower provides a governance abstraction on new account minting. However this does not apply any new resources and is extremely web-console click-heavy, which would limit our ability to automate account minting at any kind of scale.
+1. **AWS Control Tower**: AWS Control Tower provides a governance abstraction on new account minting. However this does not apply any new resources and is extremely web-console click-heavy, which would limit our ability to automate account minting at any kind of scale.
 2. **AWS Account Factory for Terraform (AFT)**: AFT was considered, however this AWS Solution deploys a lengthy set of resources onto the target AWS Account. Without extensive experimentation, there's no indiciation that this can be deployed across multiple separate regions and/or load-balanced for any kind of regional-failover. There is also an additional maintenance burden, similar to any self-built solution since this is just a packaged AWS solution and not specifically an AWS hosted service.
 
 ## Design Rationale
@@ -135,59 +135,39 @@ sequenceDiagram
 
 ### Positive
 
-[List the beneficial outcomes expected from this decision. Be specific and concrete.]
-
-* [Positive consequence 1]
-* [Positive consequence 2]
-* [Positive consequence 3]
-* [Additional positive consequences as needed]
+* Idempotent pipelines allow the ability to run the pipelines as the process to apply changes as well as to ensure there's no configuration drift.
+* Pipelines that are broken down into multiple, reusable pieces allow for the same processes to be used for future account provisioning services, such as on-demand scaling which may not go through the same global minting terraform service.
 
 ### Negative
 
-[List the drawbacks, risks, or trade-offs associated with this decision. Be honest and thorough.]
-
-* [Negative consequence 1]
-* [Negative consequence 2]
-* [Negative consequence 3]
-* [Additional negative consequences as needed]
+* We must define and maintain the whole pipeline architecture
+* We need to be the ones to define observability, since there's no out-of-the-box solution for this
 
 ## Cross-Cutting Concerns
 
-[Address relevant architectural concerns. Include only the sections that are materially impacted by this decision. Delete sections that are not applicable.]
+N/A
 
 ### Reliability:
 
-* **Scalability**: [How does this decision affect the system's ability to scale? Include horizontal/vertical scaling considerations, load patterns, and capacity limits]
-* **Observability**: [How will the system be monitored and debugged? Include logging, metrics, tracing, and alerting considerations]
-* **Resiliency**: [How does this decision impact fault tolerance, disaster recovery, and high availability? Include SLAs, failover mechanisms, and recovery procedures]
+* **Scalability**: Since this solution leverages AWS-native services we should be able to "infinitely" scale, up to any cloud-provider limits.
+* **Observability**: We need to ensure that we have and are able to export proper signal for reporting purposes and future debugability assuming something goes wrong.
+* **Resiliency**: New Region creation will be limited if the AWS Services that run the pipelines or hold the S3 State are impacted. However, new regions will not often be created, so this may not be a concern.
 
 ### Security:
-[Address authentication, authorization, encryption, compliance, and threat mitigation considerations]
 
-* [Security consideration 1]
-* [Security consideration 2]
-* [Additional security considerations as needed]
+* This solution will implement a least-privileged access model, as well as short-lived AWS IAM role credentials for all operations.
 
 ### Performance:
-[Discuss latency, throughput, resource utilization, and optimization strategies]
 
-* [Performance consideration 1]
-* [Performance consideration 2]
-* [Additional performance considerations as needed]
+* Care should be taken that any pipelines that can run in parallel during new-region creation can be. Our goal is to create a new region within an hour. For example, we can parallelize RC and MC cluster creation using a fan-out pattern, and then come back after those jobs are completed to register the MCs as consumers within the RC's Maestro instance.
 
 ### Cost:
-[Analyze direct costs, operational expenses, licensing fees, and cost optimization opportunities]
 
-* [Cost consideration 1]
-* [Cost consideration 2]
-* [Additional cost considerations as needed]
+* 
 
 ### Operability:
-[Consider deployment complexity, maintenance burden, tooling requirements, and operational procedures]
 
-* [Operability consideration 1]
-* [Operability consideration 2]
-* [Additional operability considerations as needed]
+* We will need to consider how easy it will be to debug failures, as well as surface issues.
 
 ---
 
