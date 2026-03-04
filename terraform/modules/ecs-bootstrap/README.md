@@ -1,6 +1,6 @@
 # ECS Bootstrap Module
 
-This Terraform module creates an ECS Fargate infrastructure for external ArgoCD bootstrap execution. It provides acess to secure, auditable tasks to run against the regional/management AWS accounts and EKS cluster.
+This Terraform module creates an ECS Fargate infrastructure for external ArgoCD bootstrap execution. It provides access to secure, auditable tasks to run against the regional/management AWS accounts and EKS cluster.
 
 ## Overview
 
@@ -37,7 +37,7 @@ module "ecs_bootstrap" {
 
 ### IAM Security
 
-- **EKS Access Entries**: Uses EKS access entry mechanism for Kubernetes RBAC - which can later receive further fine grained permissions
+- **EKS Access Entries**: Uses EKS access entry mechanism for Kubernetes RBAC - which can later receive further fine-grained permissions
 - **Minimal Permissions**: Task role has only required EKS and SSM permissions
 
 ### Audit Trail

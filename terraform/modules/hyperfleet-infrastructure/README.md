@@ -149,6 +149,8 @@ module "hyperfleet_infrastructure" {
 
 ## Cost Estimates
 
+> Estimated as of February 2026, us-east-1, based on AWS public pricing.
+
 ### Development Tier (Default)
 
 - **RDS**: db.t4g.micro, Single-AZ, 20GB = ~$13.62/month

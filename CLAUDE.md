@@ -49,7 +49,8 @@ The **ROSA Regional Platform** is a strategic redesign of Red Hat OpenShift Serv
   - `docs/architecture/`
   - `docs/design-decisions/`
   - Any architectural decisions or patterns
-- **Use code-reviewer agent** for security-sensitive code (IAM, networking, etc.)
+- **Use code-reviewer agent** for code-level security reviews (IAM policies, networking configs, credential handling)
+- **Use architect agent** for design-level security reviews (authentication flows, access patterns, network architecture)
 
 ### Architecture Patterns
 
@@ -129,7 +130,7 @@ docs/
 - **Terraform Validation**: Always run `terraform validate` and `terraform plan`
 - **Format Check**: Use `make terraform-fmt` before committing
 - **ArgoCD Health**: Verify applications sync successfully
-- **Security Review**: Use architect agent for security-sensitive changes
+- **Security Review**: Use code-reviewer agent for code-level security and architect agent for design-level security
 
 ### Important Files and Patterns
 
@@ -138,4 +139,4 @@ docs/
 - `argocd/config/shared/argocd/` - ArgoCD self-management Helm chart
 - Design decisions follow ADR format in `docs/design-decisions/`
 
-Include AGENTS.md
+See [AGENTS.md](AGENTS.md) for the repository-wide agent policy, security rules, and secure coding guidelines.

@@ -9,22 +9,26 @@ AWS Account Minting will leverage a collection of idempotent pipelines in order 
 ```yaml
 control:
   rosa-regional-platform:
-    prod: prod-us-east-1
-      prod-eu-west-2
-      ...
+    prod:
+      - prod-us-east-1
+      - prod-eu-west-2
+      - ...
 
 staging-1:
   rosa-regional-platform:
-    int: int-us-east-2
-    stage: stage-us-east-1
-      stage-eu-west-2
-      ...
+    int:
+      - int-us-east-2
+    stage:
+      - stage-us-east-1
+      - stage-eu-west-2
+      - ...
 
 staging-2:
   rosa-regional-platform:
-    dev: dev-kirk-us-east-2
-      dev-pete-eu-west-1
-      ...
+    dev:
+      - dev-kirk-us-east-2
+      - dev-pete-eu-west-1
+      - ...
 ```
 
 ## Context

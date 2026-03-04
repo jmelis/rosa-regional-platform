@@ -20,7 +20,7 @@ _A platform engineer can deploy a new region manually, composed of an EKS Region
 
 ---
 
-## layout: default
+layout: default
 
 # What We've Built
 

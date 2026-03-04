@@ -141,7 +141,7 @@ aws secretsmanager update-secret \
 
 **Secret not found during Terraform apply**
 
-```
+```text
 Error: reading Secrets Manager Secret: ResourceNotFoundException
 ```
 

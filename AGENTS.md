@@ -45,12 +45,12 @@ Apply these rules to all code, infrastructure, and processes to maintain a stron
 ## Secure coding rules for Go projects 🦫
 
 - Use Go modules for dependency management.
-- Validate all input entries.
-- Use html/template for output to prevent XSS.
-- Use parameterized queries to prevent SQL injection.
+- Validate all input entries using standard library (`net/http`, `strconv`, `regexp`) or `golang.org/x/net/context` for request-scoped validation.
+- Use `html/template` (not `text/template`) for output to prevent XSS.
+- Use parameterized queries to prevent SQL injection — use `database/sql` with a driver like `github.com/lib/pq` or `github.com/jackc/pgx`, or use `github.com/jmoiron/sqlx` for convenience with named parameters.
 - Avoid using `fmt.Sprintf()` to build SQL or shell commands.
-- Encrypt sensitive information and enforce HTTPS.
-- Log errors securely, avoiding leaks of sensitive data like credentials or tokens.
+- Encrypt sensitive information and enforce HTTPS using `crypto/tls` for TLS configuration. Use `golang.org/x/crypto/bcrypt` for password hashing.
+- Log errors securely using structured logging (`go.uber.org/zap` or `log/slog`), avoiding leaks of sensitive data like credentials or tokens.
 
 ## Secure coding rules for Python projects 🐍
 
