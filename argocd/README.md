@@ -54,34 +54,32 @@ deploy/                                  # Generated outputs (DO NOT EDIT)
 This file defines which region deployments (environment + name combinations) exist and how they're configured:
 
 ```yaml
-region_deployments:
-  - name: "eu-west-1"
-    aws_region: "eu-west-1"
-    sector: "integration"
-    account_id: "123456789"
-    management_clusters:
-      - id: "mc01"
-        account_id: "987654321"
-    # No config_revision = uses current git revision
-    values:
-      management-cluster:
-        hypershift:
-          replicas: 1
+environments:
+  integration:
+    region_deployments:
+      eu-west-1:
+        account_id: "123456789"
+        management_clusters:
+          mc01:
+            account_id: "987654321"
+        # No revision override = uses default (main branch)
+        values:
+          management-cluster:
+            hypershift:
+              replicas: 1
 
-  - name: "eu-west-1"
-    aws_region: "eu-west-1"
-    sector: "staging"
-    account_id: "123456789"
-    management_clusters:
-      - id: "mc01"
-        account_id: "987654321"
-    config_revision: # Pinned commits for stability
-      management-cluster: "826fa76d08fc2ce87c863196e52d5a4fa9259a82"
-      regional-cluster: "826fa76d08fc2ce87c863196e52d5a4fa9259a82"
-    values:
-      management-cluster:
-        hypershift:
-          replicas: 3
+  staging:
+    region_deployments:
+      eu-west-1:
+        account_id: "123456789"
+        revision: "826fa76d08fc2ce87c863196e52d5a4fa9259a82" # Pinned commit
+        management_clusters:
+          mc01:
+            account_id: "987654321"
+        values:
+          management-cluster:
+            hypershift:
+              replicas: 3
 ```
 
 ## Workflow

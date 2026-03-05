@@ -81,14 +81,26 @@ module "maestro_infrastructure" {
 
 ## Architecture
 
-This module enables MQTT-based communication between Regional Cluster (Maestro Server) and Management Clusters (Maestro Agents):
+```mermaid
+graph LR
+    subgraph Regional Account
+        Server[Maestro Server] --> RDS[(RDS PostgreSQL)]
+        Server -->|publishes| IoT[AWS IoT Core<br/>MQTT Broker]
+        SM1[Secrets Manager<br/>server cert, DB creds,<br/>consumer metadata]
+    end
 
-1. **Server** publishes resource updates to IoT topics
-2. **Agents** subscribe to their consumer-specific topics
-3. **Network Isolation**: No direct network path between clusters
-4. **Pre-Provisioned**: Consumer metadata stored in Secrets Manager
+    subgraph Management Account 1
+        Agent1[Maestro Agent<br/>mc01] -->|subscribes| IoT
+        SM2[Secrets Manager<br/>agent cert]
+    end
 
-See [Maestro Architecture Diagram](../../../docs/maestro-architecture-diagram.md) for details.
+    subgraph Management Account N
+        AgentN[Maestro Agent<br/>mcN] -->|subscribes| IoT
+        SM3[Secrets Manager<br/>agent cert]
+    end
+```
+
+No direct network path between Regional and Management clusters. See [Maestro MQTT Resource Distribution](../../../docs/design/maestro-mqtt-resource-distribution.md) for details.
 
 ## Cost Estimate
 

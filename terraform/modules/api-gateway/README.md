@@ -8,25 +8,14 @@ The TargetGroup ARN needs to be available to the ArgoCD's Platform API helm char
 
 ## Architecture
 
-```
-Client (awscurl with SigV4)
-    │
-    ▼
-API Gateway (AWS_IAM auth)
-    │
-    ▼ /{proxy+} ANY
-    │
-VPC Link v2
-    │
-    ▼
-Internal ALB (:80)
-    │
-    ▼
-Target Group (IP type, empty)
-    │
-    ▼ (populated by TargetGroupBinding)
-    │
-Backend Pods (:8080)
+```mermaid
+graph TB
+    Client["Client<br/>(awscurl with SigV4)"]
+    Client --> APIGW["API Gateway<br/>AWS_IAM auth"]
+    APIGW -->|"/{proxy+} ANY"| VPC["VPC Link v2"]
+    VPC --> ALB["Internal ALB :80"]
+    ALB --> TG["Target Group<br/>(IP type)"]
+    TG -->|"populated by<br/>TargetGroupBinding"| Pods["Backend Pods :8080"]
 ```
 
 ## Connecting the Backend

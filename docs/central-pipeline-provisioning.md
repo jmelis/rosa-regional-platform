@@ -75,11 +75,13 @@ environments:
   my-env:
     region_deployments:
       us-east-1:
+        account_id: "123456789012" # Or use SSM default pattern
         management_clusters:
-          mc01: {}
+          mc01:
+            account_id: "987654321098"
 ```
 
-This inherits all defaults (terraform_vars, values, SSM account_id patterns). Override only what differs — e.g. to enable the bastion:
+This inherits all defaults (terraform_vars, values, SSM account_id patterns). Override only what differs -- e.g. to enable the bastion:
 
 ```yaml
 environments:
@@ -88,8 +90,10 @@ environments:
       enable_bastion: true
     region_deployments:
       us-east-1:
+        account_id: "123456789012"
         management_clusters:
-          mc01: {}
+          mc01:
+            account_id: "987654321098"
 ```
 
 ### 2.3 Render and commit

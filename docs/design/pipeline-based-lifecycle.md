@@ -179,7 +179,7 @@ After bootstrap, the pipeline-provisioner runs automatically when changes are pu
 
 This is the terraform state for the CodePipeline/CodeBuild resources themselves (not the cluster infrastructure).
 
-See: `terraform/modules/pipeline-provisioner/`, `scripts/provision-pipelines.sh`
+See: `terraform/modules/pipeline-provisioner/`, `terraform/config/central-account-bootstrap/`, `scripts/provision-pipelines.sh`
 
 ## Layer 2: Cluster Pipelines
 
@@ -331,12 +331,12 @@ The entire deletion flow is automatic and Git-driven - no manual intervention re
 
 ### Pipeline Provisioner (Layer 1)
 
-| File                                     | Purpose                                             |
-| ---------------------------------------- | --------------------------------------------------- |
-| `terraform/config/central-account-bootstrap/`   | One-time bootstrap terraform config                 |
-| `terraform/modules/pipeline-provisioner/` | Pipeline provisioner definition and buildspecs      |
-| `scripts/bootstrap-central-account.sh`   | One-time bootstrap script                           |
-| `scripts/provision-pipelines.sh`         | Reads deploy/ and creates/updates/deletes pipelines |
+| File                                          | Purpose                                             |
+| --------------------------------------------- | --------------------------------------------------- |
+| `terraform/config/central-account-bootstrap/` | One-time bootstrap terraform config                 |
+| `terraform/modules/pipeline-provisioner/`     | Pipeline provisioner definition and buildspecs      |
+| `scripts/bootstrap-central-account.sh`        | One-time bootstrap script                           |
+| `scripts/provision-pipelines.sh`              | Reads deploy/ and creates/updates/deletes pipelines |
 
 ### Cluster Pipelines (Layer 2)
 
@@ -355,4 +355,3 @@ The entire deletion flow is automatic and Git-driven - no manual intervention re
 | MC pipeline       | `terraform-state-${CENTRAL_ACCOUNT_ID}` | `pipelines/management-${ENVIRONMENT}-${REGION_DEPLOYMENT}-${CLUSTER_NAME}.tfstate` |
 | RC infrastructure | `terraform-state-${TARGET_ACCOUNT_ID}`  | `regional-cluster/${TARGET_ALIAS}.tfstate`                                         |
 | MC infrastructure | `terraform-state-${TARGET_ACCOUNT_ID}`  | `management-cluster/${TARGET_ALIAS}.tfstate`                                       |
-

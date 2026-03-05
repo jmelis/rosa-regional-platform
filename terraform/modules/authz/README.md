@@ -12,28 +12,13 @@ The module provisions:
 
 ## Architecture
 
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                         ROSA Platform API                                │
-│                    (platform-api namespace)                         │
-└─────────────────────────────────────────────────────────────────────────┘
-                                    │
-                                    │ Pod Identity
-                                    ▼
-┌─────────────────────────────────────────────────────────────────────────┐
-│                      IAM Role: authz-platform-api                        │
-│                                                                          │
-│  Permissions:                                                            │
-│  - DynamoDB: GetItem, PutItem, Query, Scan, UpdateItem, DeleteItem      │
-│  - AVP: CreatePolicyStore, CreatePolicy, IsAuthorized, etc.             │
-└─────────────────────────────────────────────────────────────────────────┘
-                                    │
-                    ┌───────────────┼───────────────┐
-                    ▼               ▼               ▼
-            ┌───────────┐   ┌───────────┐   ┌───────────┐
-            │ DynamoDB  │   │ DynamoDB  │   │    AVP    │
-            │  Tables   │   │   GSIs    │   │           │
-            └───────────┘   └───────────┘   └───────────┘
+```mermaid
+graph TB
+    API["ROSA Platform API<br/>(platform-api namespace)"]
+    API -->|Pod Identity| Role["IAM Role: authz-platform-api"]
+    Role -->|GetItem, PutItem,<br/>Query, Scan, etc.| DDB["DynamoDB Tables"]
+    Role -->|GetItem, PutItem,<br/>Query, Scan, etc.| GSI["DynamoDB GSIs"]
+    Role -->|CreatePolicyStore,<br/>IsAuthorized, etc.| AVP["Amazon Verified<br/>Permissions"]
 ```
 
 ## DynamoDB Tables

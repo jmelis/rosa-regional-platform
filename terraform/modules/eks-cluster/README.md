@@ -7,24 +7,9 @@ Creates private EKS clusters with security-first configuration and standardized 
 - **Deterministic Resource Naming**: Uses `cluster_id` for all resource names (e.g., `regional`, `mc01`)
 - **Provider-Level Tagging**: Enforces required organizational tags via AWS provider default_tags
 - **Fully Private Clusters**: EKS control plane with private endpoint only
-- **GitOps Bootstrap**: Automated ArgoCD installation via Lambda for self-management
+- **EKS Auto Mode**: Uses Auto Mode for simplified node management
 - **Security Hardening**: KMS encryption, IMDSv2 enforcement, and network segmentation
 - **High Availability**: Multi-AZ NAT Gateways for fault-tolerant egress connectivity
-
-## Security & Scalability Enhancements
-
-### Network Security
-
-- **KMS Encryption**: Kubernetes secrets encrypted at rest using customer-managed keys
-- **Dedicated Security Groups**: VPC endpoints use isolated security groups (port 443 from VPC CIDR only)
-- **Restricted Egress**: Cluster egress limited to HTTPS for container registries and VPC internal traffic
-- **Auto Mode Authentication**: EKS authentication configured for API_AND_CONFIG_MAP mode
-
-### High Availability Network Architecture
-
-- **Multi-AZ NAT Deployment**: One NAT Gateway per availability zone eliminates single points of failure
-- **Per-AZ Route Tables**: Traffic distribution across availability zones for fault isolation
-- **Improved Resilience**: AZ outages don't impact other zones' external connectivity
 
 ## Naming Convention
 
@@ -37,7 +22,7 @@ All resources are named using the `cluster_id` variable passed to the module (e.
 - IAM Roles: `mc01-cluster-role`
 - KMS Alias: `alias/mc01-eks-secrets`
 
-Resource names are deterministic — no random suffixes. An optional CI prefix (e.g., `xg4y-`) provides isolation when multiple clusters share the same AWS account. Environment and sector are applied as tags, not embedded in resource names.
+Resource names are deterministic -- no random suffixes. An optional CI prefix (e.g., `xg4y-`) provides isolation when multiple clusters share the same AWS account. Environment and sector are applied as tags, not embedded in resource names.
 
 ## Required Provider Configuration
 
@@ -95,58 +80,43 @@ module "regional_cluster" {
 
 ## Variables
 
-| Name                            | Description                                                                     | Type           | Default                                                        | Required |
-| ------------------------------- | ------------------------------------------------------------------------------- | -------------- | -------------------------------------------------------------- | -------- |
-| `cluster_id`                    | Deterministic cluster identifier for resource naming (e.g., `regional`, `mc01`) | `string`       | n/a                                                            | yes      |
-| `cluster_type`                  | Type of cluster: `regional-cluster` or `management-cluster`                     | `string`       | n/a                                                            | yes      |
-| `cluster_version`               | Kubernetes version                                                              | `string`       | `"1.34"`                                                       | no       |
-| `vpc_cidr`                      | VPC CIDR block                                                                  | `string`       | `"10.0.0.0/16"`                                                | no       |
-| `availability_zones`            | List of availability zones (auto-detected if empty)                             | `list(string)` | `[]`                                                           | no       |
-| `private_subnet_cidrs`          | CIDR blocks for private subnets                                                 | `list(string)` | `["10.0.1.0/24", "10.0.2.0/24", "10.0.3.0/24"]`                | no       |
-| `public_subnet_cidrs`           | CIDR blocks for public subnets                                                  | `list(string)` | `["10.0.101.0/24", "10.0.102.0/24", "10.0.103.0/24"]`          | no       |
-| `node_instance_types`           | EC2 instance types for nodes                                                    | `list(string)` | `["t3.medium", "t3a.medium"]`                                  | no       |
-| `node_group_desired_size`       | Desired number of nodes                                                         | `number`       | `2`                                                            | no       |
-| `node_group_min_size`           | Minimum number of nodes                                                         | `number`       | `1`                                                            | no       |
-| `node_group_max_size`           | Maximum number of nodes                                                         | `number`       | `4`                                                            | no       |
-| `node_disk_size`                | EBS volume size for nodes (GiB)                                                 | `number`       | `20`                                                           | no       |
-| `enable_pod_security_standards` | Enable Pod Security Standards                                                   | `bool`         | `true`                                                         | no       |
-| `bootstrap_enabled`             | Enable ArgoCD bootstrap for GitOps management                                   | `bool`         | `true`                                                         | no       |
-| `argocd_namespace`              | Kubernetes namespace for ArgoCD installation                                    | `string`       | `"argocd"`                                                     | no       |
-| `argocd_chart_version`          | ArgoCD Helm chart version                                                       | `string`       | `"9.3.0"`                                                      | no       |
-| `bootstrap_repository_url`      | Git repository URL for ArgoCD configuration                                     | `string`       | `"https://github.com/openshift-online/rosa-regional-platform"` | no       |
-| `bootstrap_repository_branch`   | Git branch to track                                                             | `string`       | `"main"`                                                       | no       |
+| Name                            | Description                                                                     | Type           | Default                                               | Required |
+| ------------------------------- | ------------------------------------------------------------------------------- | -------------- | ----------------------------------------------------- | -------- |
+| `cluster_id`                    | Deterministic cluster identifier for resource naming (e.g., `regional`, `mc01`) | `string`       | n/a                                                   | yes      |
+| `cluster_type`                  | Type of cluster: `regional-cluster` or `management-cluster`                     | `string`       | n/a                                                   | yes      |
+| `cluster_version`               | Kubernetes version                                                              | `string`       | `"1.34"`                                              | no       |
+| `vpc_cidr`                      | VPC CIDR block                                                                  | `string`       | `"10.0.0.0/16"`                                       | no       |
+| `availability_zones`            | List of availability zones (auto-detected if empty)                             | `list(string)` | `[]`                                                  | no       |
+| `private_subnet_cidrs`          | CIDR blocks for private subnets                                                 | `list(string)` | `["10.0.1.0/24", "10.0.2.0/24", "10.0.3.0/24"]`       | no       |
+| `public_subnet_cidrs`           | CIDR blocks for public subnets                                                  | `list(string)` | `["10.0.101.0/24", "10.0.102.0/24", "10.0.103.0/24"]` | no       |
+| `node_instance_types`           | EC2 instance types for nodes                                                    | `list(string)` | `["t3.medium", "t3a.medium"]`                         | no       |
+| `node_group_desired_size`       | Desired number of nodes                                                         | `number`       | `2`                                                   | no       |
+| `node_group_min_size`           | Minimum number of nodes                                                         | `number`       | `1`                                                   | no       |
+| `node_group_max_size`           | Maximum number of nodes                                                         | `number`       | `4`                                                   | no       |
+| `node_disk_size`                | EBS volume size for nodes (GiB)                                                 | `number`       | `20`                                                  | no       |
+| `enable_pod_security_standards` | Enable Pod Security Standards                                                   | `bool`         | `true`                                                | no       |
 
 ## Outputs
 
 | Name                                 | Description                                        |
 | ------------------------------------ | -------------------------------------------------- |
 | `cluster_name`                       | EKS cluster name (same as `cluster_id`)            |
+| `cluster_arn`                        | EKS cluster ARN                                    |
 | `cluster_endpoint`                   | EKS cluster API endpoint                           |
+| `cluster_version`                    | Kubernetes version of the cluster                  |
 | `cluster_certificate_authority_data` | Base64 encoded certificate data                    |
-| `vpc_id`                             | VPC ID where cluster is deployed                   |
-| `private_subnets`                    | Private subnet IDs where worker nodes are deployed |
 | `cluster_security_group_id`          | EKS cluster security group ID                      |
-| `bootstrap_report`                   | Bootstrap process information and status           |
+| `node_security_group_id`             | EKS node security group ID (Auto Mode primary SG)  |
+| `vpc_id`                             | VPC ID where cluster is deployed                   |
+| `private_subnet_ids`                 | Private subnet IDs where worker nodes are deployed |
+| `public_subnet_ids`                  | Public subnet IDs (NAT gateways only)              |
+| `cluster_iam_role_arn`               | IAM role ARN of the EKS cluster                    |
+| `node_iam_role_arn`                  | IAM role ARN of EKS Auto Mode nodes                |
+| `kms_key_arn`                        | KMS key ARN for EKS secrets encryption             |
 
-## Bootstrap Functionality
+## Bootstrap
 
-When `bootstrap_enabled` is `true`, the module automatically installs ArgoCD for GitOps management:
-
-1. **Lambda Function**: Executes within cluster VPC for secure bootstrap operations
-2. **Tool Installation**: Downloads kubectl, helm, and AWS CLI at runtime
-3. **ArgoCD Installation**: Installs ArgoCD via Helm with cluster-only access
-4. **GitOps Configuration**: Creates Application of Applications for self-management
-5. **Synchronous Execution**: Bootstrap completes during `terraform apply` with visible logs
-
-### Bootstrap Process
-
-The Lambda function:
-
-- Runs in the cluster's private subnets for network access
-- Updates kubeconfig using EKS access entries and Pod Identity
-- Installs ArgoCD using Helm from the official repository
-- Creates bootstrap application pointing to your repository
-- Enables ArgoCD to take over cluster management
+This module provisions the EKS cluster infrastructure only. ArgoCD bootstrap is handled separately by the `ecs-bootstrap` module, which runs an ECS Fargate task to install ArgoCD into the private cluster. See [ECS Fargate Bootstrap](../../../docs/design/fully-private-eks-bootstrap.md) for details.
 
 ## Requirements
 

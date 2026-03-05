@@ -47,13 +47,13 @@ platformApi:
 ### Basic Installation
 
 ```bash
-helm install platform-api ./deployment/helm/rosa-regional-platform
+helm install platform-api ./argocd/config/regional-cluster/platform-api
 ```
 
 ### Production Installation with Custom Values
 
 ```bash
-helm install platform-api ./deployment/helm/rosa-regional-platform \
+helm install platform-api ./argocd/config/regional-cluster/platform-api \
   --set platformApi.targetGroup.arn="arn:aws:elasticloadbalancing:us-east-1:123456789012:targetgroup/platform-api/abc123def456" \
   --set platformApi.app.args.allowedAccounts="111111111111,222222222222,333333333333"
 ```
@@ -91,14 +91,14 @@ platformApi:
 Install with custom values:
 
 ```bash
-helm install platform-api ./deployment/helm/rosa-regional-platform \
+helm install platform-api ./argocd/config/regional-cluster/platform-api \
   -f custom-values.yaml
 ```
 
 ## Upgrading
 
 ```bash
-helm upgrade platform-api ./deployment/helm/rosa-regional-platform \
+helm upgrade platform-api ./argocd/config/regional-cluster/platform-api \
   --set platformApi.targetGroup.arn="arn:aws:elasticloadbalancing:us-east-1:123456789012:targetgroup/platform-api/abc123def456" \
   --set platformApi.app.args.allowedAccounts="111111111111,222222222222"
 ```
@@ -147,26 +147,12 @@ kubectl delete namespace platform-api
 
 ## Architecture
 
-```
-┌─────────────────────────────────────────┐
-│   Application Load Balancer (ALB)      │
-└────────────────┬────────────────────────┘
-                 │ :8080
-                 │
-┌────────────────▼────────────────────────┐
-│           Envoy Sidecar :8080           │
-│  Routes based on path:                  │
-│  • /api/* → app:8000                    │
-│  • /v0/live → app:8081 (/healthz)       │
-│  • /v0/ready → app:8081 (/readyz)       │
-│  • /metrics → app:9090                  │
-└────────────────┬────────────────────────┘
-                 │
-     ┌───────────┼───────────┐
-     │           │           │
-     ▼           ▼           ▼
-   :8000       :8081       :9090
-    API       Health      Metrics
+```mermaid
+graph TB
+    ALB["Application Load Balancer"] -->|:8080| Envoy["Envoy Sidecar :8080"]
+    Envoy -->|"/api/*"| API[":8000 API"]
+    Envoy -->|"/v0/live → /healthz<br/>/v0/ready → /readyz"| Health[":8081 Health"]
+    Envoy -->|"/metrics"| Metrics[":9090 Metrics"]
 ```
 
 ## Health Checks

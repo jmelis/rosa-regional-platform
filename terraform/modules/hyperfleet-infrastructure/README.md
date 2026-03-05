@@ -8,29 +8,17 @@ HyperFleet is the cluster lifecycle management system that orchestrates ROSA HCP
 
 ## Architecture
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    EKS Regional Cluster                      │
-│                                                              │
-│  ┌──────────────┐      ┌──────────────┐   ┌──────────────┐│
-│  │ HyperFleet   │      │ HyperFleet   │   │ HyperFleet   ││
-│  │ API          │      │ Sentinel     │   │ Adapter      ││
-│  │              │      │              │   │              ││
-│  │ Pod Identity │      │ Pod Identity │   │ Pod Identity ││
-│  └──────┬───────┘      └──────┬───────┘   └──────┬───────┘│
-│         │                     │                   │         │
-└─────────┼─────────────────────┼───────────────────┼─────────┘
-          │                     │                   │
-          │ AWS Secrets         │ AWS Secrets       │ AWS Secrets
-          │ Manager (DB)        │ Manager (MQ)      │ Manager (MQ)
-          │                     │                   │
-     ┌────▼─────┐          ┌────▼──────────────────▼────┐
-     │   RDS    │          │      Amazon MQ             │
-     │PostgreSQL│          │   (RabbitMQ 3.13)          │
-     │          │          │                            │
-     │db.t4g.   │          │   mq.t3.micro              │
-     │micro     │          │   SINGLE_INSTANCE          │
-     └──────────┘          └────────────────────────────┘
+```mermaid
+graph TB
+    subgraph EKS["EKS Regional Cluster"]
+        API["HyperFleet API<br/>Pod Identity"]
+        Sentinel["HyperFleet Sentinel<br/>Pod Identity"]
+        Adapter["HyperFleet Adapter<br/>Pod Identity"]
+    end
+
+    API -->|Secrets Manager<br/>DB creds| RDS["RDS PostgreSQL<br/>db.t4g.micro"]
+    Sentinel -->|Secrets Manager<br/>MQ creds| MQ["Amazon MQ<br/>RabbitMQ 3.13<br/>mq.t3.micro"]
+    Adapter -->|Secrets Manager<br/>MQ creds| MQ
 ```
 
 ## Resources Created
@@ -348,11 +336,9 @@ If issues occur, revert to in-cluster services:
 
 ## Related Documentation
 
-- [HyperFleet Architecture](../../../docs/architecture/hyperfleet.md)
 - [AWS RDS Documentation](https://docs.aws.amazon.com/rds/)
 - [Amazon MQ Documentation](https://docs.aws.amazon.com/amazon-mq/)
 - [EKS Pod Identity](https://docs.aws.amazon.com/eks/latest/userguide/pod-identities.html)
-- [Migration Plan](../../../HYPERFLEET_PRODUCTION_MIGRATION_PLAN.md)
 
 ## Support
 

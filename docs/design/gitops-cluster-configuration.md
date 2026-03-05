@@ -20,18 +20,11 @@ The ROSA Regional Platform implements a GitOps cluster configuration system usin
 
 ### Foundation Concepts
 
-**ECS Bootstrap Process**: Each cluster starts completely private with no external access. AWS ECS Fargate tasks running in the cluster's private subnets provide the secure mechanism to install ArgoCD and create the initial application and the cluster identity secret. This is part of the overall bootstrap process that provisions private EKS clusters. Once ECS completes the handoff, ArgoCD takes full control.
+**ECS Bootstrap Process**: Each cluster starts fully private. ECS Fargate tasks install ArgoCD and create the cluster identity secret. See [ECS Fargate Bootstrap](fully-private-eks-bootstrap.md) for the complete bootstrap design.
 
-**ArgoCD ApplicationSets**: ArgoCD's ApplicationSet controller automatically generates multiple ArgoCD Applications based on templates and generators. Instead of manually creating dozens of Applications for each cluster, we use one ApplicationSet that discovers applications and clusters dynamically.
+**ArgoCD ApplicationSets**: The ApplicationSet controller generates multiple Applications from templates and generators. We use a "matrix" generator combining a Cluster Generator (finds cluster identity) and a Git Generator (discovers charts by scanning directories), producing 1 cluster x N applications.
 
-**Matrix Generators**: ApplicationSets support different generator types. We use a "matrix" generator that combines two other generators:
-
-- **Cluster Generator**: Finds clusters to deploy to (in our case, finds the cluster's own identity)
-- **Git Generator**: Discovers applications to deploy by scanning repository directories
-
-The matrix creates the cartesian product: 1 cluster × N applications = N Applications for that cluster.
-
-**Cluster Identity Secret**: Each cluster has a Kubernetes secret that serves as its identity, containing labels (cluster_type, environment, region_deployment, aws_region) and annotations (git repository, revision) that ApplicationSets use to determine what and how to deploy.
+**Cluster Identity Secret**: Each cluster has a Kubernetes secret with labels (cluster_type, environment, region_deployment, aws_region) and annotations (git repository, revision) that ApplicationSets use to determine what and how to deploy.
 
 ### GitOps Configuration Flow
 
@@ -178,7 +171,7 @@ sources:
         - values.yaml # Chart defaults
         - $values/deploy/{{ .environment }}/{{ .region_deployment }}/argocd/management-cluster-values.yaml # Overrides
   - ref: values # Rendered overrides source
-    repoURL: https://github.com/openshift-online/rosa-platform
+    repoURL: https://github.com/openshift-online/rosa-regional-platform
     targetRevision: HEAD
 ```
 
@@ -190,48 +183,7 @@ sources:
 
 ## Private Cluster GitOps Integration
 
-### Bootstrap-then-Handoff Pattern
-
-The GitOps system integrates seamlessly with the fully private cluster architecture through a carefully orchestrated handoff process:
-
-```mermaid
-sequenceDiagram
-    participant TF as Terraform
-    participant ECS as ECS Fargate
-    participant ArgoCD as ArgoCD
-    participant Git as Git Repository
-    participant Apps as Applications
-
-    TF->>ECS: 1. Trigger bootstrap task
-    ECS->>ArgoCD: 2. Install initial ArgoCD
-    ECS->>ArgoCD: 3. Create root application
-    ArgoCD->>Git: 4. Pull ApplicationSet
-    ArgoCD->>Apps: 5. Generate applications
-    Apps->>ArgoCD: 6. Self-manage ArgoCD
-
-    Note over ECS,ArgoCD: ECS handoff complete
-    Note over ArgoCD,Apps: GitOps takes control
-```
-
-### GitOps Handoff Implementation
-
-**Application of Applications Pattern**: The ECS bootstrap task creates a single root ArgoCD application that immediately enables complete self-management:
-
-1. **Initial ArgoCD Installation**: ECS Fargate task installs ArgoCD components using Helm within the private cluster network
-2. **Root Application Creation**: ECS task creates the initial ArgoCD application pointing to the Git repository's ApplicationSet configuration
-3. **Immediate Handoff**: ArgoCD immediately takes control by pulling the ApplicationSet from Git, which generates all subsequent applications
-4. **Self-Configuration**: The ApplicationSet includes ArgoCD's own configuration, enabling complete self-management via GitOps
-
-### ArgoCD Self-Management Architecture
-
-**Bootstrap-then-Handoff Pattern**: After the initial ECS-based installation, ArgoCD manages its own updates by pulling its chart version from the self-owning application within the ApplicationSet matrix.
-
-**Self-Management Benefits**:
-
-- **Zero External Dependencies**: No ongoing external access required for cluster configuration management
-- **Audit Trail Preservation**: All changes tracked through Git commits, including ArgoCD's own updates
-- **Version Control**: ArgoCD version pinning through the same `config_revision` mechanism used for other applications
-- **Cluster Independence**: Each cluster's ArgoCD operates independently, enabling autonomous regional operations without cross-cluster dependencies
+The GitOps system integrates with the fully private cluster architecture through the bootstrap-then-handoff pattern described in [ECS Fargate Bootstrap](fully-private-eks-bootstrap.md). After ECS installs ArgoCD, it creates a root application pointing to the ApplicationSet, and ArgoCD immediately takes full control including self-management.
 
 ## Progressive Deployment Strategy
 
@@ -241,28 +193,30 @@ The architecture enables sophisticated deployment patterns through sector config
 
 ```yaml
 # Sector progression example
-region_deployments:
-  # Integration: Always HEAD for rapid development
-  - name: "us-east-1"
-    aws_region: "us-east-1"
-    sector: "integration"
-    # No config_revision = follows HEAD of repository
+environments:
+  integration:
+    # Integration: Always HEAD for rapid development
+    region_deployments:
+      us-east-1:
+        management_clusters:
+          mc01: {}
+        # No revision override = follows default (main branch)
 
-  # Staging: Pinned commits for QA validation
-  - name: "eu-west-1"
-    aws_region: "eu-west-1"
-    sector: "staging"
-    config_revision:
-      management-cluster: "826fa76d08fc2ce87c863196e52d5a4fa9259a82"
-      regional-cluster: "826fa76d08fc2ce87c863196e52d5a4fa9259a82"
+  staging:
+    # Staging: Pinned commits for QA validation
+    region_deployments:
+      eu-west-1:
+        revision: "826fa76d08fc2ce87c863196e52d5a4fa9259a82"
+        management_clusters:
+          mc01: {}
 
-  # Production: Promoted commits with explicit approval
-  - name: "eu-west-1"
-    aws_region: "eu-west-1"
-    sector: "production"
-    config_revision:
-      management-cluster: "7f8a9b2c15e4d3c6f9a8b7e6d5c4b3a2f1e0d9c8"
-      regional-cluster: "7f8a9b2c15e4d3c6f9a8b7e6d5c4b3a2f1e0d9c8"
+  production:
+    # Production: Promoted commits with explicit approval
+    region_deployments:
+      eu-west-1:
+        revision: "7f8a9b2c15e4d3c6f9a8b7e6d5c4b3a2f1e0d9c8"
+        management_clusters:
+          mc01: {}
 ```
 
 ## Cross-Cutting Concerns
@@ -317,7 +271,7 @@ kind: Application
 spec:
   source:
     path: argocd/charts/management-cluster
-    repoURL: https://github.com/openshift-online/rosa-platform
+    repoURL: https://github.com/openshift-online/rosa-regional-platform
     targetRevision: HEAD
 ```
 
@@ -386,7 +340,7 @@ kind: Application
 spec:
   source:
     path: rendered/management-cluster/integration/us-west-1
-    repoURL: https://github.com/openshift-online/rosa-platform
+    repoURL: https://github.com/openshift-online/rosa-regional-platform
     targetRevision: HEAD
 ```
 
@@ -454,7 +408,7 @@ metadata:
     aws_region: us-west-1
     cluster_name: mc01
   annotations:
-    git_repo: https://github.com/openshift-online/rosa-platform
+    git_repo: https://github.com/openshift-online/rosa-regional-platform
     git_revision: HEAD  # Allows changes for dev
 type: Opaque
 
@@ -464,7 +418,7 @@ kind: Application
 spec:
   source:
     path: argocd/applicationsets
-    repoURL: https://github.com/openshift-online/rosa-platform
+    repoURL: https://github.com/openshift-online/rosa-regional-platform
     targetRevision: HEAD
 
 # Static ApplicationSet definition

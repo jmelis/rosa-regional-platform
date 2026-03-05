@@ -33,18 +33,18 @@ Example: you want to spin up a development cluster and re-use the existing confi
 
 ### Add Region to Configuration
 
-Edit `config.yaml` and add your new region following this pattern:
+Edit `config.yaml` and add your new region under the appropriate environment:
 
 ```yaml
-region_deployments:
-  # ... existing entries ...
-  - name: "us-west-2" # ← Region deployment name (identifier for deploy paths)
-    aws_region: "us-west-2" # ← AWS region to deploy into
-    sector: "integration" # ← Sector (inherits environment + defaults)
-    account_id: "123456789" # ← Regional cluster AWS account ID
-    management_clusters:
-      mc01: # ← Management cluster key (becomes management_id)
-        account_id: "987654321" # ← Management cluster AWS account ID
+environments:
+  integration: # ← Environment name
+    region_deployments:
+      # ... existing entries ...
+      us-west-2: # ← AWS region (dict key)
+        account_id: "123456789" # ← Regional cluster AWS account ID
+        management_clusters:
+          mc01: # ← Management cluster key (becomes management_id)
+            account_id: "987654321" # ← Management cluster AWS account ID
 ```
 
 ### Generate Rendered Configurations
@@ -142,6 +142,8 @@ MGMT_TFVARS=terraform/config/management-cluster/terraform.tfvars make provision-
 
 ### Step 4b: Management Account Secret Setup
 
+The IoT provisioning script (Step 4a) outputs certificate data. This must be manually transferred to the management account's Secrets Manager.
+
 **Switch to management account authentication:**
 
 ```bash
@@ -153,12 +155,22 @@ export AWS_PROFILE=<management-profile>
 **Create IoT secret in management account:**
 
 ```bash
-MGMT_TFVARS=terraform/config/management-cluster/terraform.tfvars make provision-maestro-agent-iot-management
+# Extract certificate data from regional terraform output
+cd terraform/config/maestro-agent-iot-provisioning
+terraform output -json certificate_data > cert.json
+
+# Create the secret in the management account
+aws secretsmanager create-secret \
+  --name "mc01-maestro-agent-cert" \
+  --secret-string file://cert.json
+
+# Securely delete local copy
+shred -u cert.json
 ```
 
 **What this creates:**
 
-- Kubernetes secret containing IoT certificate and endpoint
+- Secrets Manager secret containing IoT certificate and endpoint
 - Configuration for Maestro agent to connect to regional IoT endpoint
 
 <details>

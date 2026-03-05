@@ -972,8 +972,7 @@ This network topology demonstrates the fundamental isolation principle: Regional
 
 ### Design Decisions
 
-- **[001-fully-private-eks-bootstrap.md](./001-fully-private-eks-bootstrap.md)** - ECS-based bootstrap strategy for fully private EKS clusters
-- **[maestro-agent-iot-provisioning.md](./maestro-agent-iot-provisioning.md)** - Detailed IoT Core provisioning and certificate management
+- **[fully-private-eks-bootstrap.md](./fully-private-eks-bootstrap.md)** - ECS-based bootstrap strategy for fully private EKS clusters
 
 ### External References
 
@@ -985,8 +984,8 @@ This network topology demonstrates the fundamental isolation principle: Regional
 
 ### Configuration Files
 
-- **[argocd/config/regional-cluster/maestro/](../../argocd/config/regional-cluster/maestro/)** - Maestro Server Helm chart configurations
-- **[argocd/config/management-cluster/maestro/](../../argocd/config/management-cluster/maestro/)** - Maestro Agent Helm chart configurations
+- **[argocd/config/regional-cluster/maestro-server/](../../argocd/config/regional-cluster/maestro-server/)** - Maestro Server Helm chart configurations
+- **[argocd/config/management-cluster/maestro-agent/](../../argocd/config/management-cluster/maestro-agent/)** - Maestro Agent Helm chart configurations
 
 ---
 

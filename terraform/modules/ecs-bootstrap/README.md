@@ -4,13 +4,17 @@ This Terraform module creates an ECS Fargate infrastructure for external ArgoCD 
 
 ## Overview
 
-The module creates:
+```mermaid
+graph LR
+    subgraph ECS Fargate Cluster
+        Task[ECS Task<br/>AWS CLI base image]
+    end
 
-- **ECS Fargate Cluster**: Dedicated cluster for bootstrap operations
-- **ECS Task Definition**: Containerized bootstrap execution with AWS CLI base image
-- **IAM Roles**: Separate execution and task roles with minimal required permissions
-- **Security Groups**: Network isolation with controlled EKS API access
-- **CloudWatch Logging**: Complete audit trail for all bootstrap operations
+    Task -->|port 443<br/>private subnets| EKS[EKS Cluster<br/>Kube API]
+    Task -->|execution logs| CW[CloudWatch Logs]
+    IAM[IAM Roles<br/>execution + task] -->|minimal permissions| Task
+    SG[Security Groups] -->|controlled access| Task
+```
 
 ## Usage
 
