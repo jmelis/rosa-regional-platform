@@ -1,5 +1,22 @@
 # CI
 
+CI is managed through the [OpenShift CI](https://docs.ci.openshift.org/) system (Prow + ci-operator). The job configuration lives in [openshift/release](https://github.com/openshift/release/tree/master/ci-operator/config/openshift-online/rosa-regional-platform).
+
+## Jobs
+
+| Job                                                                                                                                                                                       | Schedule                  | Description                                                                                                    |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| [`terraform-validate`](https://prow.ci.openshift.org/job-history/gs/test-platform-results/pr-logs/directory/pull-ci-openshift-online-rosa-regional-platform-main-terraform-validate)      | Pre-submit                | Runs `terraform validate` on all root modules                                                                  |
+| [`helm-lint`](https://prow.ci.openshift.org/job-history/gs/test-platform-results/pr-logs/directory/pull-ci-openshift-online-rosa-regional-platform-main-helm-lint)                        | Pre-submit                | Lints Helm charts                                                                                              |
+| [`check-rendered-files`](https://prow.ci.openshift.org/job-history/gs/test-platform-results/pr-logs/directory/pull-ci-openshift-online-rosa-regional-platform-main-check-rendered-files)  | Pre-submit                | Verifies rendered deploy files are up to date                                                                  |
+| [`on-demand-e2e`](https://prow.ci.openshift.org/job-history/gs/test-platform-results/pr-logs/directory/pull-ci-openshift-online-rosa-regional-platform-main-on-demand-e2e)                | Pre-submit (manual)       | Full e2e: provisions ephemeral environment, runs tests, tears down. Trigger with `/test on-demand-e2e` on a PR |
+| [`nightly`](https://prow.ci.openshift.org/job-history/gs/test-platform-results/logs/periodic-ci-openshift-online-rosa-regional-platform-main-nightly)                                     | Daily at 07:00 UTC        | End-to-end provisioning and test suite against `main`                                                          |
+| [`nightly-resources-janitor`](https://prow.ci.openshift.org/job-history/gs/test-platform-results/logs/periodic-ci-openshift-online-rosa-regional-platform-main-nightly-resources-janitor) | Weekly (Sunday 12:00 UTC) | Purges leaked AWS resources using [aws-nuke](https://github.com/ekristen/aws-nuke)                             |
+
+## Build Image
+
+The CI image is built from `ci/Containerfile` and includes all required tools (Terraform, Helm, AWS CLI, Python/uv, etc.).
+
 ## Pre-merge / Ephemeral Environment
 
 The `ci/pre-merge.py` script manages ephemeral environments for CI testing. It supports two modes — provision and teardown — designed to run as separate CI steps with tests in between.
@@ -55,14 +72,11 @@ Open the `job_url` from the response to watch the job in Prow.
 The e2e job uses three sets of AWS credentials (central, regional, and management accounts).
 
 Credentials are stored in Vault at `kv/selfservice/cluster-secrets-rosa-regional-platform-int/nightly-static-aws-credentials` and mounted at `/var/run/rosa-credentials/` with keys:
+
 - `ci_access_key`, `ci_secret_key`, `ci_assume_role_arn` — Central account (base credentials + AssumeRole)
 - `regional_access_key`, `regional_secret_key` — Regional sub-account
 - `management_access_key`, `management_secret_key` — Management sub-account
 - `github_token` — GitHub token with push access for creating CI branches
-
-### Where things are defined
-
-- **CI job config**: [`openshift/release` — `ci-operator/config/openshift-online/rosa-regional-platform/`](https://github.com/openshift/release/tree/master/ci-operator/config/openshift-online/rosa-regional-platform)
 
 ## Nightly Resources Janitor
 
@@ -83,7 +97,3 @@ See `./ci/aws-nuke-config.yaml`.
 ```
 
 The script uses whatever AWS credentials are active in your environment. The account must be in the allowlist in `purge-aws-account.sh`.
-
-## Test Results
-
-Results are available on the [OpenShift CI Prow dashboard](https://prow.ci.openshift.org/?job=periodic-ci-openshift-online-rosa-regional-platform-main-nightly).
