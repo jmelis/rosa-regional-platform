@@ -1,21 +1,10 @@
 ### What cluster types does the regional architecture support?
 
-- The regional architecture is designed exclusively for **ROSA HCP** (Hosted Control Planes)
-- This architecture does not support ROSA Classic or OSD
-- All ROSA HCP clusters will be migrated to this new architecture
-- Existing ROSA Classic and OSD clusters remain globally managed and are not migrated to this architecture
+The regional architecture is designed exclusively for **ROSA HCP** (Hosted Control Planes). For the complete scope and architecture overview, see [ROSA Regional Platform](README.md#scope).
 
 ### What is the Regional Cluster and what services run on it?
 
-- The Regional Cluster (RC) is a new EKS-based cluster type, one per region
-- It runs the core regional services:
-  - **Platform API** (authorization-aware customer-facing API)
-  - **CLM** (Cluster Lifecycle Manager - replaces OCM/CS/AMS)
-  - **Maestro** (applies resources to Management Clusters via MQTT)
-  - **ArgoCD** (GitOps deployment)
-  - **Tekton** (pipeline execution for MC provisioning)
-- The Kubernetes API is private
-- Provisioned by the Regional Provisioning Pipelines
+The Regional Cluster (RC) is an EKS-based cluster running core regional services (Platform API, CLM, Maestro, ArgoCD, Tekton). For the complete three-layer architecture and component details, see [Architecture at a Glance](README.md#architecture-at-a-glance).
 
 ### What is the difference between the Regional Cluster and the Regional-Access Cluster?
 

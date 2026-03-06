@@ -348,6 +348,8 @@ If issues occur, revert to in-cluster services:
 
 ## Related Documentation
 
+- [HyperFleet System Chart](/argocd/config/regional-cluster/hyperfleet-system/README.md) - Helm chart deployment and operational guide
+- [Architecture Overview](/docs/README.md) - ROSA Regional Platform three-layer architecture
 - [AWS RDS Documentation](https://docs.aws.amazon.com/rds/)
 - [Amazon MQ Documentation](https://docs.aws.amazon.com/amazon-mq/)
 - [EKS Pod Identity](https://docs.aws.amazon.com/eks/latest/userguide/pod-identities.html)

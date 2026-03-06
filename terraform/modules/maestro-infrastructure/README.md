@@ -88,6 +88,8 @@ This module enables MQTT-based communication between Regional Cluster (Maestro S
 3. **Network Isolation**: No direct network path between clusters
 4. **Pre-Provisioned**: Consumer metadata stored in Secrets Manager
 
+For complete architecture diagrams and message flows, see [Maestro MQTT Resource Distribution](/docs/design/maestro-mqtt-resource-distribution.md).
+
 ## Cost Estimate
 
 - AWS IoT Core: ~$1-2/month
