@@ -1,4 +1,3 @@
-import datetime
 import logging
 import os
 import re
@@ -13,6 +12,7 @@ import yaml
 
 from . import TARGET_ENVIRONMENT
 from .aws import AWSCredentials
+from .codebuild_logs import download_codebuild_logs
 from .git import GitManager
 from .pipeline import PipelineMonitor
 
@@ -103,88 +103,18 @@ class EphemeralEnvOrchestrator:
             log.warning("ARTIFACT_DIR not set — skipping CodeBuild log collection")
             return
 
-        artifact_path = Path(artifact_dir) / "codebuild-logs"
-        artifact_path.mkdir(parents=True, exist_ok=True)
-
         if not self.aws or not self.aws.session:
             log.warning("AWS session not available — skipping log collection")
             return
 
-        logs_client = self.aws.session.client("logs")
-        prefix = f"/aws/codebuild/{self.ci_prefix}-"
+        artifact_path = Path(artifact_dir) / "codebuild-logs"
+        files = download_codebuild_logs(self.aws.session, self.ci_prefix, artifact_path)
 
-        try:
-            response = logs_client.describe_log_groups(logGroupNamePrefix=prefix)
-        except Exception:
-            log.exception("Failed to list CloudWatch log groups")
-            return
-
-        log_groups = response.get("logGroups", [])
-        if not log_groups:
-            log.info("No CloudWatch log groups found with prefix '%s'", prefix)
-            return
-
-        log.info("Collecting logs from %d CodeBuild log group(s)...", len(log_groups))
-
-        for lg in log_groups:
-            group_name = lg["logGroupName"]
-            project_name = group_name.rsplit("/", 1)[-1]
-
-            try:
-                streams_resp = logs_client.describe_log_streams(
-                    logGroupName=group_name,
-                    orderBy="LastEventTime",
-                    descending=True,
-                )
-                stream_list = streams_resp.get("logStreams", [])
-                if not stream_list:
-                    log.info("  %s: no log streams", group_name)
-                    continue
-
-                # Reverse so index 0 = oldest (chronological order)
-                stream_list.reverse()
-
-                for idx, stream_info in enumerate(stream_list):
-                    stream_name = stream_info["logStreamName"]
-                    ts_ms = stream_info.get("firstEventTimestamp")
-                    if ts_ms:
-                        ts_label = datetime.datetime.fromtimestamp(
-                            ts_ms / 1000, tz=datetime.timezone.utc
-                        ).strftime("%Y%m%d-%H%M%S")
-                    else:
-                        ts_label = "unknown"
-                    safe_name = f"{project_name}.{ts_label}.log"
-                    out_file = artifact_path / safe_name
-
-                    events = []
-                    kwargs = {
-                        "logGroupName": group_name,
-                        "logStreamName": stream_name,
-                        "startFromHead": True,
-                    }
-                    while True:
-                        resp = logs_client.get_log_events(**kwargs)
-                        batch = resp.get("events", [])
-                        if not batch:
-                            break
-                        events.extend(batch)
-                        next_token = resp.get("nextForwardToken")
-                        if next_token == kwargs.get("nextToken"):
-                            break
-                        kwargs["nextToken"] = next_token
-
-                    lines = [e["message"] for e in events]
-                    content = "\n".join(lines)
-                    content = _strip_ansi(content)
-                    content = _redact_sensitive(content)
-
-                    out_file.write_text(content)
-                    log.info("  %s: %d events -> %s", group_name, len(events), out_file)
-
-            except Exception:
-                log.exception("  Failed to collect logs from %s", group_name)
-
-        log.info("CodeBuild logs written to %s", artifact_path)
+        # Redact sensitive values (AWS keys, session tokens) from Prow artifacts
+        for f in files:
+            content = f.read_text()
+            content = _redact_sensitive(content)
+            f.write_text(content)
 
     def _setup_aws(self):
         """Set up AWS credentials and trust policies."""
@@ -451,13 +381,6 @@ class EphemeralEnvOrchestrator:
                 f"Terraform teardown timed out after {TEARDOWN_TIMEOUT}s"
             )
         log.info("Pipeline-provisioner destroyed.")
-
-
-_ANSI_RE = re.compile(r"\x1b\[[0-9;]*m")
-
-
-def _strip_ansi(text: str) -> str:
-    return _ANSI_RE.sub("", text)
 
 
 # Patterns that match AWS secrets we don't want in Prow artifacts

@@ -52,17 +52,17 @@ Open the `job_url` from the response to watch the job in Prow.
 
 ## Download CodeBuild Logs
 
-`ci/download-codebuild-logs.sh` downloads CloudWatch logs for all CodeBuild projects matching a CI prefix. It fetches every log stream (build run) per project and names files chronologically (`.0.log` = oldest run, `.1.log` = next, etc.). ANSI color codes are stripped from the output.
+`ci/download-codebuild-logs.py` downloads CloudWatch logs for all CodeBuild projects matching a CI prefix. It fetches every log stream (build run) per project and names files with timestamps (e.g. `ci-202982-regional-apply.20260306-075604.log`) for chronological ordering. ANSI color codes are stripped from the output.
 
 ```bash
-# Download all logs for a CI run
-./ci/download-codebuild-logs.sh ci-202982
+# Download all logs for a CI run (requires uv)
+./ci/download-codebuild-logs.py ci-202982
 
 # Specify a region (default: us-east-1)
-./ci/download-codebuild-logs.sh ci-202982 eu-west-1
+./ci/download-codebuild-logs.py ci-202982 --region eu-west-1
 ```
 
-Logs are saved to `codebuild-logs-<ci-prefix>/`.
+Logs are saved to `codebuild-logs-<ci-prefix>/`. The same download logic is used by `ephemerallib` to collect logs into Prow artifacts (with additional secret redaction).
 
 ## AWS Credentials
 
