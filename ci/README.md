@@ -12,7 +12,7 @@ CI is managed through the [OpenShift CI](https://docs.ci.openshift.org/) system 
 | [`on-demand-e2e`](https://prow.ci.openshift.org/job-history/gs/test-platform-results/pr-logs/directory/pull-ci-openshift-online-rosa-regional-platform-main-on-demand-e2e)                      | Pre-submit (manual)       | Full e2e: provisions ephemeral environment, runs tests, tears down. Trigger with `/test on-demand-e2e` on a PR |
 | [`nightly-ephemeral`](https://prow.ci.openshift.org/job-history/gs/test-platform-results/logs/periodic-ci-openshift-online-rosa-regional-platform-main-nightly-ephemeral)                      | Daily at 07:00 UTC        | End-to-end: provisions ephemeral environment, runs tests, tears down                                           |
 | [`nightly-integration`](https://prow.ci.openshift.org/job-history/gs/test-platform-results/logs/periodic-ci-openshift-online-rosa-regional-platform-main-nightly-integration)                  | Daily at 07:00 UTC        | Runs e2e tests against a standing integration environment                                                      |
-| [`nightly-resources-janitor`](https://prow.ci.openshift.org/job-history/gs/test-platform-results/logs/periodic-ci-openshift-online-rosa-regional-platform-main-nightly-resources-janitor)      | Weekly (Sunday 12:00 UTC) | Purges leaked AWS resources using [aws-nuke](https://github.com/ekristen/aws-nuke)                             |
+| [`ephemeral-resources-janitor`](https://prow.ci.openshift.org/job-history/gs/test-platform-results/logs/periodic-ci-openshift-online-rosa-regional-platform-main-ephemeral-resources-janitor)      | Weekly (Sunday 12:00 UTC) | Purges leaked AWS resources using [aws-nuke](https://github.com/ekristen/aws-nuke)                             |
 
 ## Build Image
 
@@ -86,12 +86,12 @@ Logs are saved to `codebuild-logs-<ci-prefix>/`. The same download logic is used
 
 The e2e jobs use credentials mounted at `/var/run/rosa-credentials/`. Credentials are managed in [Vault](https://vault.ci.openshift.org/ui/vault/secrets/kv/kv/list/selfservice/cluster-secrets-rosa-regional-platform-int/). Two credential secrets are used:
 
-- `rosa-regional-platform-ephemeral-creds` — grants access to the AWS accounts used to spin up an ephemeral environment. Used by `nightly-ephemeral`, `on-demand-e2e`, and `nightly-resources-janitor`.
+- `rosa-regional-platform-ephemeral-creds` — grants access to the AWS accounts used to spin up an ephemeral environment. Used by `nightly-ephemeral`, `on-demand-e2e`, and `ephemeral-resources-janitor`.
 - `rosa-regional-platform-integration-creds` — grants access to AWS credentials for testing against the API gateway in the regional integration account. Used by `nightly-integration`.
 
 ## Nightly Resources Janitor
 
-The e2e tests create AWS resources across multiple accounts. Teardown relies on `terraform destroy`, which can fail and leak resources. The **nightly-resources-janitor** job is a weekly fallback that purges everything except resources we need to keep between tests using [aws-nuke](https://github.com/ekristen/aws-nuke).
+The e2e tests create AWS resources across multiple accounts. Teardown relies on `terraform destroy`, which can fail and leak resources. The **ephemeral-resources-janitor** job is a weekly fallback that purges everything except resources we need to keep between tests using [aws-nuke](https://github.com/ekristen/aws-nuke).
 
 ### What is preserved
 
