@@ -37,10 +37,9 @@ variable "target_region" {
   default     = ""
 }
 
-variable "target_alias" {
+variable "regional_id" {
   type        = string
-  description = "Target Alias (Optional override)"
-  default     = ""
+  description = "Regional cluster identifier for resource naming (e.g., 'regional' or 'ci-abc123-regional' in CI)"
 }
 
 variable "target_environment" {

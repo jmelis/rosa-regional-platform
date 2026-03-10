@@ -251,7 +251,7 @@ for region_dir in deploy/${ENVIRONMENT}/*/; do
         AWS_REGION=$(jq -r '.region // .target_region // "us-east-1"' "$REGIONAL_CONFIG")
         TARGET_ACCOUNT_ID=$(jq -r '.account_id // ""' "$REGIONAL_CONFIG")
         TARGET_ACCOUNT_ID=$(resolve_ssm_param "$TARGET_ACCOUNT_ID")
-        TARGET_ALIAS=$(jq -r '.regional_id // ""' "$REGIONAL_CONFIG")
+        REGIONAL_ID=$(jq -r '.regional_id // ""' "$REGIONAL_CONFIG")
 
         # Extract terraform vars with defaults
         APP_CODE=$(jq -r '.app_code // "infra"' "$REGIONAL_CONFIG")
@@ -266,7 +266,7 @@ for region_dir in deploy/${ENVIRONMENT}/*/; do
 
         echo "  AWS Region: $AWS_REGION"
         [ -n "$TARGET_ACCOUNT_ID" ] && echo "  Target Account ID: $TARGET_ACCOUNT_ID"
-        [ -n "$TARGET_ALIAS" ] && echo "  Target Alias: $TARGET_ALIAS"
+        [ -n "$REGIONAL_ID" ] && echo "  Regional ID: $REGIONAL_ID"
         echo "  Terraform Vars: app_code=$APP_CODE, service_phase=$SERVICE_PHASE, cost_center=$COST_CENTER, enable_bastion=$ENABLE_BASTION"
         echo "  Delete Flag: $DELETE_FLAG"
 
@@ -287,7 +287,7 @@ for region_dir in deploy/${ENVIRONMENT}/*/; do
         terraform init \
             -reconfigure \
             -backend-config="bucket=$TF_STATE_BUCKET" \
-            -backend-config="key=pipelines/regional-${ENVIRONMENT}-${REGION_DEPLOYMENT}.tfstate" \
+            -backend-config="key=pipelines/regional-${ENVIRONMENT}-${REGION_DEPLOYMENT}-${REGIONAL_ID}.tfstate" \
             -backend-config="region=$TF_STATE_REGION" \
             -backend-config="use_lockfile=true"
 
@@ -300,7 +300,7 @@ for region_dir in deploy/${ENVIRONMENT}/*/; do
         [ -n "$GITHUB_CONNECTION_ARN" ] && TF_ARGS+=( -var="github_connection_arn=${GITHUB_CONNECTION_ARN}" )
         [ -n "$TARGET_ACCOUNT_ID" ] && TF_ARGS+=( -var="target_account_id=${TARGET_ACCOUNT_ID}" )
         [ -n "$AWS_REGION" ] && TF_ARGS+=( -var="target_region=${AWS_REGION}" )
-        [ -n "$TARGET_ALIAS" ] && TF_ARGS+=( -var="target_alias=${TARGET_ALIAS}" )
+        [ -n "$REGIONAL_ID" ] && TF_ARGS+=( -var="regional_id=${REGIONAL_ID}" )
         [ -n "$ENVIRONMENT" ] && TF_ARGS+=( -var="target_environment=${ENVIRONMENT}" )
         [ -n "$APP_CODE" ] && TF_ARGS+=( -var="app_code=${APP_CODE}" )
         [ -n "$SERVICE_PHASE" ] && TF_ARGS+=( -var="service_phase=${SERVICE_PHASE}" )
@@ -360,7 +360,7 @@ for region_dir in deploy/${ENVIRONMENT}/*/; do
             AWS_REGION=$(jq -r '.region // .target_region // "us-east-1"' "$mc_config")
             TARGET_ACCOUNT_ID=$(jq -r '.account_id // ""' "$mc_config")
             TARGET_ACCOUNT_ID=$(resolve_ssm_param "$TARGET_ACCOUNT_ID")
-            TARGET_ALIAS=$(jq -r '.management_id // ""' "$mc_config")
+            MANAGEMENT_ID=$(jq -r '.management_id // ""' "$mc_config")
 
             # Extract terraform vars with defaults
             APP_CODE=$(jq -r '.app_code // "infra"' "$mc_config")
@@ -375,8 +375,8 @@ for region_dir in deploy/${ENVIRONMENT}/*/; do
             # Sets DELETE_FLAG to true if FORCE_DELETE_ALL_PIPELINES is true
             [ "$FORCE_DELETE_ALL_PIPELINES" == "true" ] && DELETE_FLAG="true"
 
-            # Use TARGET_ALIAS as cluster_id default if not specified
-            [ -z "$CLUSTER_ID" ] && CLUSTER_ID="${TARGET_ALIAS}"
+            # Use MANAGEMENT_ID as cluster_id default if not specified
+            [ -z "$CLUSTER_ID" ] && CLUSTER_ID="${MANAGEMENT_ID}"
 
             # Resolve REGIONAL_AWS_ACCOUNT_ID using the helper function
             REGIONAL_AWS_ACCOUNT_ID=$(resolve_ssm_param "$REGIONAL_AWS_ACCOUNT_ID" "${AWS_REGION}")
@@ -390,7 +390,7 @@ for region_dir in deploy/${ENVIRONMENT}/*/; do
 
             echo "  AWS Region: $AWS_REGION"
             [ -n "$TARGET_ACCOUNT_ID" ] && echo "  Target Account ID: $TARGET_ACCOUNT_ID"
-            [ -n "$TARGET_ALIAS" ] && echo "  Target Alias: $TARGET_ALIAS"
+            [ -n "$MANAGEMENT_ID" ] && echo "  Management ID: $MANAGEMENT_ID"
             echo "  Terraform Vars: app_code=$APP_CODE, service_phase=$SERVICE_PHASE, cost_center=$COST_CENTER, cluster_id=$CLUSTER_ID, regional_aws_account_id=$REGIONAL_AWS_ACCOUNT_ID, enable_bastion=$ENABLE_BASTION"
             echo "  Delete Flag: $DELETE_FLAG"
 
@@ -425,12 +425,11 @@ for region_dir in deploy/${ENVIRONMENT}/*/; do
             [ -n "$GITHUB_CONNECTION_ARN" ] && TF_ARGS+=( -var="github_connection_arn=${GITHUB_CONNECTION_ARN}" )
             [ -n "$TARGET_ACCOUNT_ID" ] && TF_ARGS+=( -var="target_account_id=${TARGET_ACCOUNT_ID}" )
             [ -n "$AWS_REGION" ] && TF_ARGS+=( -var="target_region=${AWS_REGION}" )
-            [ -n "$TARGET_ALIAS" ] && TF_ARGS+=( -var="target_alias=${TARGET_ALIAS}" )
+            [ -n "$MANAGEMENT_ID" ] && TF_ARGS+=( -var="management_id=${MANAGEMENT_ID}" )
             [ -n "$ENVIRONMENT" ] && TF_ARGS+=( -var="target_environment=${ENVIRONMENT}" )
             [ -n "$APP_CODE" ] && TF_ARGS+=( -var="app_code=${APP_CODE}" )
             [ -n "$SERVICE_PHASE" ] && TF_ARGS+=( -var="service_phase=${SERVICE_PHASE}" )
             [ -n "$COST_CENTER" ] && TF_ARGS+=( -var="cost_center=${COST_CENTER}" )
-            [ -n "$CLUSTER_ID" ] && TF_ARGS+=( -var="management_id=${CLUSTER_ID}" )
             [ -n "$REGIONAL_AWS_ACCOUNT_ID" ] && TF_ARGS+=( -var="regional_aws_account_id=${REGIONAL_AWS_ACCOUNT_ID}" )
             # Handle enable_bastion (boolean, convert to Terraform boolean)
             if [ "$ENABLE_BASTION" == "true" ] || [ "$ENABLE_BASTION" == "1" ]; then

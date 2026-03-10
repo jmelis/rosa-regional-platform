@@ -6,8 +6,8 @@ data "aws_caller_identity" "current" {}
 data "aws_region" "current" {}
 
 locals {
-  # Use target_alias (regional_id) directly — already unique per environment/CI run
-  name_prefix    = var.target_alias
+  # regional_id is already unique per environment/CI run
+  name_prefix    = var.regional_id
   account_suffix = substr(data.aws_caller_identity.current.account_id, -8, 8)
 
   # Resource naming: {name_prefix}-{resource-type}
@@ -234,8 +234,8 @@ resource "aws_codebuild_project" "regional_apply" {
     }
     # Human-readable alias for the target environment
     environment_variable {
-      name  = "TARGET_ALIAS"
-      value = var.target_alias
+      name  = "REGIONAL_ID"
+      value = var.regional_id
     }
     # Application code for resource tagging
     environment_variable {
@@ -317,8 +317,8 @@ resource "aws_codebuild_project" "regional_bootstrap" {
     }
     # Human-readable alias for the target environment
     environment_variable {
-      name  = "TARGET_ALIAS"
-      value = var.target_alias
+      name  = "REGIONAL_ID"
+      value = var.regional_id
     }
     # AWS region for deployment
     environment_variable {

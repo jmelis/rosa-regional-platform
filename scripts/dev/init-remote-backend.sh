@@ -3,7 +3,7 @@
 # init-remote-backend.sh - Initialize Terraform backend against remote S3 state
 #
 # Reads the deploy/<environment>/<region>/terraform/ configs to compute the
-# target alias, then generates a backend_override.tf pointing at the S3 state
+# cluster identifier, then generates a backend_override.tf pointing at the S3 state
 # bucket in the target account (where resources reside) and runs terraform init.
 #
 # For local dev, authenticate directly to the target account (no cross-account
@@ -125,7 +125,7 @@ if [ ! -d "$REGION_DEPLOYMENT_DIR" ]; then
     exit 1
 fi
 
-# ── Compute alias from deploy config ──────────────────────────────────────
+# ── Compute cluster ID from deploy config ─────────────────────────────────
 
 CONFIG_DIR="$REPO_ROOT/terraform/config/${CLUSTER_TYPE}-cluster"
 STATE_PREFIX="${CLUSTER_TYPE}-cluster"
@@ -136,12 +136,12 @@ if [ "$CLUSTER_TYPE" = "regional" ]; then
         echo "Error: Regional config not found: $CONFIG_FILE"
         exit 1
     fi
-    ALIAS=$(jq -r '.alias // empty' "$CONFIG_FILE")
-    if [ -z "$ALIAS" ]; then
+    CLUSTER_ID=$(jq -r '.alias // empty' "$CONFIG_FILE")
+    if [ -z "$CLUSTER_ID" ]; then
         echo "Error: No 'alias' field in $CONFIG_FILE"
         exit 1
     fi
-    echo "==> Resolved alias from regional.json: $ALIAS"
+    echo "==> Resolved cluster ID from regional.json: $CLUSTER_ID"
 else
     # Management cluster — find the right MC config
     MC_DIR="$REGION_DEPLOYMENT_DIR/terraform/management"
@@ -175,17 +175,17 @@ else
         fi
     fi
 
-    ALIAS=$(jq -r '.alias // empty' "$CONFIG_FILE")
-    if [ -z "$ALIAS" ]; then
+    CLUSTER_ID=$(jq -r '.alias // empty' "$CONFIG_FILE")
+    if [ -z "$CLUSTER_ID" ]; then
         echo "Error: No 'alias' field in $CONFIG_FILE"
         exit 1
     fi
-    echo "==> Resolved alias from $(basename "$CONFIG_FILE"): $ALIAS"
+    echo "==> Resolved cluster ID from $(basename "$CONFIG_FILE"): $CLUSTER_ID"
 fi
 
 echo "    Environment: $ENVIRONMENT"
 echo "    Region:      $REGION"
-echo "    Alias:       $ALIAS"
+echo "    Cluster ID:  $CLUSTER_ID"
 echo ""
 
 # ── Detect target account and state bucket ─────────────────────────────────
@@ -219,7 +219,7 @@ fi
 
 # ── Verify state exists ──────────────────────────────────────────────────
 
-STATE_KEY="${STATE_PREFIX}/${ALIAS}.tfstate"
+STATE_KEY="${STATE_PREFIX}/${CLUSTER_ID}.tfstate"
 if ! aws s3 ls "s3://${TF_STATE_BUCKET}/${STATE_KEY}" > /dev/null 2>&1; then
     echo "Warning: State file not found: s3://${TF_STATE_BUCKET}/${STATE_KEY}"
     echo ""
@@ -271,6 +271,6 @@ echo "==> Done! Terraform is now configured against remote state."
 echo "    Cluster type: $CLUSTER_TYPE"
 echo "    Environment:  $ENVIRONMENT"
 echo "    Region:       $REGION"
-echo "    Alias:        $ALIAS"
+echo "    Cluster ID:   $CLUSTER_ID"
 echo "    State:        s3://${TF_STATE_BUCKET}/${STATE_KEY}"
 echo ""

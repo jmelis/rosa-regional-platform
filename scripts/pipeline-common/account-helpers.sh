@@ -21,7 +21,7 @@
 #   TARGET_ACCOUNT_ID         - MC account ID (for use_mc_account)
 #   REGIONAL_AWS_ACCOUNT_ID   - RC account ID (for use_rc_account), supports ssm:// prefix
 #   TARGET_REGION             - Target AWS region (for SSM resolution)
-#   TARGET_ALIAS              - Cluster alias (for session naming)
+#   CLUSTER_ID                - Cluster identifier (for session naming; set by setup-apply-preflight.sh)
 
 set -euo pipefail
 
@@ -57,7 +57,7 @@ init_account_helpers() {
 # Assumes OrganizationAccountAccessRole in TARGET_ACCOUNT_ID using central creds.
 # If TARGET_ACCOUNT_ID == CENTRAL_ACCOUNT_ID, restores central creds directly.
 use_mc_account() {
-    _assume_account "${TARGET_ACCOUNT_ID}" "mc-${TARGET_ALIAS:-pipeline}"
+    _assume_account "${TARGET_ACCOUNT_ID}" "mc-${CLUSTER_ID:-pipeline}"
 }
 
 # =============================================================================
@@ -97,7 +97,7 @@ _resolve_rc_account() {
 # Assumes OrganizationAccountAccessRole in REGIONAL_AWS_ACCOUNT_ID using central creds.
 use_rc_account() {
     _resolve_rc_account
-    _assume_account "$_RESOLVED_RC_ACCOUNT_ID" "rc-${TARGET_ALIAS:-pipeline}"
+    _assume_account "$_RESOLVED_RC_ACCOUNT_ID" "rc-${CLUSTER_ID:-pipeline}"
 }
 
 # =============================================================================

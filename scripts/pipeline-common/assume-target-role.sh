@@ -12,7 +12,7 @@
 #
 # Expected environment variables:
 #   TARGET_ACCOUNT_ID   - Target AWS account ID
-#   TARGET_ALIAS        - Target cluster alias (for session naming)
+#   CLUSTER_ID          - Cluster identifier (for session naming)
 #   CENTRAL_ACCOUNT_ID  - Central AWS account ID
 #
 # Exports:
@@ -48,7 +48,7 @@ if [ "$TARGET_ACCOUNT_ID" != "$CENTRAL_ACCOUNT_ID" ]; then
 
     if ! TEMP_CREDS=$(aws sts assume-role \
         --role-arn "$ROLE_ARN" \
-        --role-session-name "pipeline-${TARGET_ALIAS}" \
+        --role-session-name "pipeline-${CLUSTER_ID}" \
         --query 'Credentials.[AccessKeyId,SecretAccessKey,SessionToken]' \
         --output text 2>&1); then
         echo "❌ ERROR: Failed to assume role $ROLE_ARN"

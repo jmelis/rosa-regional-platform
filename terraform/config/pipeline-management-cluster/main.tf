@@ -6,8 +6,8 @@ data "aws_caller_identity" "current" {}
 data "aws_region" "current" {}
 
 locals {
-  # Use target_alias (management_id) directly — already unique per environment/CI run
-  name_prefix    = var.target_alias
+  # management_id is already unique per environment/CI run
+  name_prefix    = var.management_id
   account_suffix = substr(data.aws_caller_identity.current.account_id, -8, 8)
 
   # Resource naming: {name_prefix}-{resource-type}
@@ -338,8 +338,8 @@ resource "aws_codebuild_project" "management_apply" {
     }
     # Unique identifier for deploying multiple clusters per region
     environment_variable {
-      name  = "TARGET_ALIAS"
-      value = var.target_alias
+      name  = "MANAGEMENT_ID"
+      value = var.management_id
     }
     # Application code for resource tagging
     environment_variable {
@@ -422,8 +422,8 @@ resource "aws_codebuild_project" "management_bootstrap" {
     }
     # Unique identifier for the cluster
     environment_variable {
-      name  = "TARGET_ALIAS"
-      value = var.target_alias
+      name  = "MANAGEMENT_ID"
+      value = var.management_id
     }
     # AWS region for bootstrap operations
     environment_variable {
@@ -486,8 +486,8 @@ resource "aws_codebuild_project" "iot_mint" {
     }
     # Unique identifier for this management cluster pipeline
     environment_variable {
-      name  = "TARGET_ALIAS"
-      value = var.target_alias
+      name  = "MANAGEMENT_ID"
+      value = var.management_id
     }
     # Application code for resource tagging
     environment_variable {
@@ -549,8 +549,8 @@ resource "aws_codebuild_project" "register" {
     }
     # Unique identifier for this management cluster pipeline
     environment_variable {
-      name  = "TARGET_ALIAS"
-      value = var.target_alias
+      name  = "MANAGEMENT_ID"
+      value = var.management_id
     }
     # Logical ID for registering with Regional Cluster
     environment_variable {

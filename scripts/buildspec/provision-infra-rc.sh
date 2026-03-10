@@ -17,12 +17,12 @@ echo ""
 
 echo "Deploying to account: ${TARGET_ACCOUNT_ID}"
 echo "  Region: ${TARGET_REGION}"
-echo "  Alias: ${TARGET_ALIAS}"
+echo "  Regional ID: ${REGIONAL_ID}"
 echo ""
 
 # Configure Terraform backend (state in target account)
 export TF_STATE_BUCKET="terraform-state-${TARGET_ACCOUNT_ID}"
-export TF_STATE_KEY="regional-cluster/${TARGET_ALIAS}.tfstate"
+export TF_STATE_KEY="regional-cluster/${REGIONAL_ID}.tfstate"
 export TF_STATE_REGION="${TARGET_REGION}"
 
 echo "Terraform backend:"
@@ -63,7 +63,6 @@ fi
 
 echo "Terraform variables:"
 echo "  Region: $TF_VAR_region"
-echo "  Target Alias: $TF_VAR_target_alias"
 echo "  App Code: $TF_VAR_app_code"
 echo "  Service Phase: $TF_VAR_service_phase"
 echo "  Cost Center: $TF_VAR_cost_center"

@@ -13,10 +13,10 @@ source scripts/pipeline-common/setup-apply-preflight.sh
 
 # Read delete flag from config (GitOps-driven deletion)
 ENVIRONMENT="${ENVIRONMENT:-staging}"
-MC_CONFIG_FILE="deploy/${ENVIRONMENT}/${TARGET_REGION}/terraform/management/${TARGET_ALIAS}.json"
+MC_CONFIG_FILE="deploy/${ENVIRONMENT}/${TARGET_REGION}/terraform/management/${MANAGEMENT_ID}.json"
 if [ ! -f "$MC_CONFIG_FILE" ]; then
     echo "ERROR: Config file not found: $MC_CONFIG_FILE" >&2
-    echo "  ENVIRONMENT=$ENVIRONMENT TARGET_REGION=$TARGET_REGION TARGET_ALIAS=$TARGET_ALIAS" >&2
+    echo "  ENVIRONMENT=$ENVIRONMENT TARGET_REGION=$TARGET_REGION MANAGEMENT_ID=$MANAGEMENT_ID" >&2
     exit 1
 fi
 DELETE_FLAG=$(jq -r '.delete // false' "$MC_CONFIG_FILE")
@@ -41,11 +41,11 @@ fi
 use_mc_account
 echo ""
 
-echo "Bootstrapping ArgoCD: ${TARGET_ALIAS} (${TARGET_ACCOUNT_ID}) in ${TARGET_REGION}"
+echo "Bootstrapping ArgoCD: ${MANAGEMENT_ID} (${TARGET_ACCOUNT_ID}) in ${TARGET_REGION}"
 echo ""
 
 # Initialize Terraform backend and verify outputs
-./scripts/pipeline-common/init-terraform-backend.sh management-cluster "${TARGET_REGION}" "${TARGET_ALIAS}"
+./scripts/pipeline-common/init-terraform-backend.sh management-cluster "${TARGET_REGION}" "${MANAGEMENT_ID}"
 
 # Bootstrap ArgoCD (already in target account, no cross-account assume needed)
 ./scripts/pipeline-common/bootstrap-argocd-wrapper.sh management-cluster "${TARGET_ACCOUNT_ID}"

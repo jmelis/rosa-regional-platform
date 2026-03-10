@@ -16,7 +16,7 @@ ENVIRONMENT="${ENVIRONMENT:-staging}"
 RC_CONFIG_FILE="deploy/${ENVIRONMENT}/${TARGET_REGION}/terraform/regional.json"
 if [ ! -f "$RC_CONFIG_FILE" ]; then
     echo "ERROR: Config file not found: $RC_CONFIG_FILE" >&2
-    echo "  ENVIRONMENT=$ENVIRONMENT TARGET_REGION=$TARGET_REGION TARGET_ALIAS=$TARGET_ALIAS" >&2
+    echo "  ENVIRONMENT=$ENVIRONMENT TARGET_REGION=$TARGET_REGION REGIONAL_ID=$REGIONAL_ID" >&2
     exit 1
 fi
 DELETE_FLAG=$(jq -r '.delete // false' "$RC_CONFIG_FILE")
@@ -41,11 +41,11 @@ fi
 use_mc_account
 echo ""
 
-echo "Bootstrapping ArgoCD: ${TARGET_ALIAS} (${TARGET_ACCOUNT_ID}) in ${TARGET_REGION}"
+echo "Bootstrapping ArgoCD: ${REGIONAL_ID} (${TARGET_ACCOUNT_ID}) in ${TARGET_REGION}"
 echo ""
 
 # Initialize Terraform backend and verify outputs
-./scripts/pipeline-common/init-terraform-backend.sh regional-cluster "${TARGET_REGION}" "${TARGET_ALIAS}"
+./scripts/pipeline-common/init-terraform-backend.sh regional-cluster "${TARGET_REGION}" "${REGIONAL_ID}"
 
 # Bootstrap ArgoCD (already in target account, no cross-account assume needed)
 ./scripts/pipeline-common/bootstrap-argocd-wrapper.sh regional-cluster "${TARGET_ACCOUNT_ID}"

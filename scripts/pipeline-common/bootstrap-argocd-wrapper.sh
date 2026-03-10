@@ -15,7 +15,7 @@
 #
 # Expected environment variables:
 #   ENVIRONMENT or TARGET_ENVIRONMENT - Environment name
-#   TARGET_ALIAS - Cluster alias
+#   REGIONAL_ID or MANAGEMENT_ID - Cluster identifier
 #   TARGET_REGION - AWS region
 #   CENTRAL_ACCOUNT_ID - Central account ID
 #   TARGET_ACCOUNT_ID - Target account ID (for cross-account check)

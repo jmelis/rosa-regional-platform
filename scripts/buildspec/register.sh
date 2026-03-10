@@ -13,10 +13,10 @@ source scripts/pipeline-common/setup-apply-preflight.sh
 
 # Read delete flag from config (GitOps-driven deletion)
 ENVIRONMENT="${ENVIRONMENT:-staging}"
-MC_CONFIG_FILE="deploy/${ENVIRONMENT}/${TARGET_REGION}/terraform/management/${TARGET_ALIAS}.json"
+MC_CONFIG_FILE="deploy/${ENVIRONMENT}/${TARGET_REGION}/terraform/management/${MANAGEMENT_ID}.json"
 if [ ! -f "$MC_CONFIG_FILE" ]; then
     echo "ERROR: Config file not found: $MC_CONFIG_FILE" >&2
-    echo "  ENVIRONMENT=$ENVIRONMENT TARGET_REGION=$TARGET_REGION TARGET_ALIAS=$TARGET_ALIAS" >&2
+    echo "  ENVIRONMENT=$ENVIRONMENT TARGET_REGION=$TARGET_REGION MANAGEMENT_ID=$MANAGEMENT_ID" >&2
     exit 1
 fi
 DELETE_FLAG=$(jq -r '.delete // false' "$MC_CONFIG_FILE")
@@ -156,7 +156,7 @@ PAYLOAD=$(cat <<EOJSON
     "cluster_type": "management",
     "management_id": "${CLUSTER_ID}",
     "region": "${TARGET_REGION}",
-    "alias": "${TARGET_ALIAS}"
+    "alias": "${MANAGEMENT_ID}"
   }
 }
 EOJSON

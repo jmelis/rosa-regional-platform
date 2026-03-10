@@ -37,12 +37,6 @@ variable "target_region" {
   default     = ""
 }
 
-variable "target_alias" {
-  type        = string
-  description = "Target Alias (Optional override)"
-  default     = ""
-}
-
 variable "target_environment" {
   type        = string
   description = "Target environment (integration, staging, prod)"

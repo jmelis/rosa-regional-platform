@@ -174,8 +174,8 @@ After bootstrap, the pipeline-provisioner runs automatically when changes are pu
 **Pipeline definition state** is stored in the central account:
 
 - **Bucket**: `terraform-state-${CENTRAL_ACCOUNT_ID}`
-- **RC Key**: `pipelines/regional-${ENVIRONMENT}-${REGION_DEPLOYMENT}.tfstate`
-- **MC Key**: `pipelines/management-${ENVIRONMENT}-${REGION_DEPLOYMENT}-${CLUSTER_NAME}.tfstate`
+- **RC Key**: `pipelines/regional-${ENVIRONMENT}-${REGION_DEPLOYMENT}-${REGIONAL_ID}.tfstate`
+- **MC Key**: `pipelines/management-${ENVIRONMENT}-${REGION_DEPLOYMENT}-${MANAGEMENT_ID}.tfstate`
 
 This is the terraform state for the CodePipeline/CodeBuild resources themselves (not the cluster infrastructure).
 
@@ -209,8 +209,8 @@ See: `terraform/config/pipeline-management-cluster/`, `terraform/config/manageme
 **Infrastructure state** is stored in target accounts:
 
 - **Bucket**: `terraform-state-${TARGET_ACCOUNT_ID}`
-- **Regional Key**: `regional-cluster/${TARGET_ALIAS}.tfstate`
-- **Management Key**: `management-cluster/${TARGET_ALIAS}.tfstate`
+- **Regional Key**: `regional-cluster/${CLUSTER_ID}.tfstate`
+- **Management Key**: `management-cluster/${CLUSTER_ID}.tfstate`
 
 State is co-located with resources for security isolation and simplified disaster recovery.
 
@@ -331,12 +331,12 @@ The entire deletion flow is automatic and Git-driven - no manual intervention re
 
 ### Pipeline Provisioner (Layer 1)
 
-| File                                     | Purpose                                             |
-| ---------------------------------------- | --------------------------------------------------- |
-| `terraform/config/central-account-bootstrap/`   | One-time bootstrap terraform config                 |
-| `terraform/modules/pipeline-provisioner/` | Pipeline provisioner definition and buildspecs      |
-| `scripts/bootstrap-central-account.sh`   | One-time bootstrap script                           |
-| `scripts/provision-pipelines.sh`         | Reads deploy/ and creates/updates/deletes pipelines |
+| File                                          | Purpose                                             |
+| --------------------------------------------- | --------------------------------------------------- |
+| `terraform/config/central-account-bootstrap/` | One-time bootstrap terraform config                 |
+| `terraform/modules/pipeline-provisioner/`     | Pipeline provisioner definition and buildspecs      |
+| `scripts/bootstrap-central-account.sh`        | One-time bootstrap script                           |
+| `scripts/provision-pipelines.sh`              | Reads deploy/ and creates/updates/deletes pipelines |
 
 ### Cluster Pipelines (Layer 2)
 
@@ -349,10 +349,9 @@ The entire deletion flow is automatic and Git-driven - no manual intervention re
 
 ### State Locations
 
-| State             | Bucket                                  | Key Pattern                                                                        |
-| ----------------- | --------------------------------------- | ---------------------------------------------------------------------------------- |
-| RC pipeline       | `terraform-state-${CENTRAL_ACCOUNT_ID}` | `pipelines/regional-${ENVIRONMENT}-${REGION_DEPLOYMENT}.tfstate`                   |
-| MC pipeline       | `terraform-state-${CENTRAL_ACCOUNT_ID}` | `pipelines/management-${ENVIRONMENT}-${REGION_DEPLOYMENT}-${CLUSTER_NAME}.tfstate` |
-| RC infrastructure | `terraform-state-${TARGET_ACCOUNT_ID}`  | `regional-cluster/${TARGET_ALIAS}.tfstate`                                         |
-| MC infrastructure | `terraform-state-${TARGET_ACCOUNT_ID}`  | `management-cluster/${TARGET_ALIAS}.tfstate`                                       |
-
+| State             | Bucket                                  | Key Pattern                                                                         |
+| ----------------- | --------------------------------------- | ----------------------------------------------------------------------------------- |
+| RC pipeline       | `terraform-state-${CENTRAL_ACCOUNT_ID}` | `pipelines/regional-${ENVIRONMENT}-${REGION_DEPLOYMENT}-${REGIONAL_ID}.tfstate`     |
+| MC pipeline       | `terraform-state-${CENTRAL_ACCOUNT_ID}` | `pipelines/management-${ENVIRONMENT}-${REGION_DEPLOYMENT}-${MANAGEMENT_ID}.tfstate` |
+| RC infrastructure | `terraform-state-${TARGET_ACCOUNT_ID}`  | `regional-cluster/${CLUSTER_ID}.tfstate`                                            |
+| MC infrastructure | `terraform-state-${TARGET_ACCOUNT_ID}`  | `management-cluster/${CLUSTER_ID}.tfstate`                                          |
