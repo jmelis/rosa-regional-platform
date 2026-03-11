@@ -221,7 +221,22 @@ Expected: ArgoCD applications "Synced" and "Healthy".
 
 ---
 
-## 6. Consumer Registration & Verification
+## 6. Account Registration
+
+Before making any Platform API calls, the calling AWS account must be registered. The first invocation must be made from the bootstrap account (the one seeded by Terraform via the `bootstrap_accounts` variable), as it is the only account authorized initially.
+
+```bash
+API_GATEWAY_URL=$(make terraform-output-regional | jq -r '.api_gateway_invoke_url.value')
+
+awscurl -X POST $API_GATEWAY_URL/api/v0/accounts \
+    --service execute-api --region $REGION \
+    -H "Content-Type: application/json" \
+    -d '{"accountId": "<AWS_ACCOUNT_ID>", "privileged": true}'
+```
+
+---
+
+## 7. Consumer Registration & Verification
 
 Register the Management Cluster as a consumer with the Regional Cluster's Maestro server.
 
@@ -237,7 +252,7 @@ awscurl -X POST $API_GATEWAY_URL/api/v0/management_clusters \
 
 ---
 
-## 7. End-to-End Verification
+## 8. End-to-End Verification
 
 This section provides comprehensive validation that both Regional and Management clusters are running and can communicate properly via Maestro.
 

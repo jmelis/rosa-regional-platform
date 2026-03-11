@@ -193,6 +193,19 @@ terraform output -raw api_test_command
 
 > **Note:** `awscurl` must be run from the Regional account, which is the only account authorized by default.
 
+### 3.7 Register additional accounts
+
+The bootstrap account (seeded by Terraform via the `bootstrap_accounts` variable) is the only account authorized to call the Platform API initially. To authorize additional AWS accounts, the first invocation must be made from the bootstrap account:
+
+```bash
+awscurl -X POST $API_GATEWAY_URL/api/v0/accounts \
+    --service execute-api --region <region> \
+    -H "Content-Type: application/json" \
+    -d '{"accountId": "<AWS_ACCOUNT_ID>", "privileged": true}'
+```
+
+> **Note:** The `API_GATEWAY_URL` can be obtained from `terraform output -raw api_gateway_invoke_url` in the regional cluster terraform config. The `awscurl` request must be signed with credentials from an already-authorized account (initially, the bootstrap account).
+
 ## 4. Verify Maestro Connectivity
 
 From the Regional account, verify IoT certificates are active:
@@ -238,4 +251,4 @@ argocd      root            Synced        Healthy
 
 ---
 
-For manual post-pipeline steps, see [Consumer Registration & Verification](https://github.com/openshift-online/rosa-regional-platform/blob/main/docs/full-region-provisioning.md#6-consumer-registration--verification).
+For manual post-pipeline steps, see [Consumer Registration & Verification](https://github.com/openshift-online/rosa-regional-platform/blob/main/docs/full-region-provisioning.md#7-consumer-registration--verification).
