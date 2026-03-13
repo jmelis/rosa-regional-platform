@@ -156,6 +156,35 @@ output "api_test_command" {
   value       = module.api_gateway.test_command
 }
 
+# =============================================================================
+# DNS Outputs
+# =============================================================================
+
+output "regional_hosted_zone_id" {
+  description = "Route53 hosted zone ID for the regional domain (e.g. us-east-1.int0.rosa.devshift.net)"
+  value       = var.environment_domain != null ? aws_route53_zone.regional[0].zone_id : null
+}
+
+output "regional_domain" {
+  description = "Regional domain name (e.g. us-east-1.int0.rosa.devshift.net)"
+  value       = var.environment_domain != null ? "${var.region}.${var.environment_domain}" : null
+}
+
+output "regional_name_servers" {
+  description = "NS records for the regional zone"
+  value       = var.environment_domain != null ? aws_route53_zone.regional[0].name_servers : null
+}
+
+output "api_domain_name" {
+  description = "Custom domain name for the API (e.g. api.us-east-1.int0.rosa.devshift.net)"
+  value       = module.api_gateway.api_domain_name
+}
+
+output "api_domain_regional_domain_name" {
+  description = "API Gateway regional domain name — target for DNS alias/CNAME"
+  value       = module.api_gateway.api_domain_regional_domain_name
+}
+
 # Maestro Infrastructure Outputs
 # =============================================================================
 

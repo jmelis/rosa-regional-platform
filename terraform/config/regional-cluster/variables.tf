@@ -92,6 +92,18 @@ variable "api_additional_allowed_accounts" {
   default     = ""
 }
 
+variable "environment_domain" {
+  description = "Environment domain name (e.g. int0.rosa.devshift.net). When set, creates the regional DNS zone (<region>.<environment_domain>) and custom API domain (api.<region>.<environment_domain>). When null, no DNS resources are created."
+  type        = string
+  default     = null
+}
+
+variable "environment_hosted_zone_id" {
+  description = "Route53 hosted zone ID for the environment domain (e.g. the zone for int0.rosa.devshift.net) in the central account. Used to create NS delegation records for the regional zone. When null, delegation must be done externally."
+  type        = string
+  default     = null
+}
+
 # Maestro Configuration Variables
 # =============================================================================
 
