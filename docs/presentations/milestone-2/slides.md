@@ -16,7 +16,7 @@ mdc: true
 
 [ROSA-667 - Milestone 2 - Continuous Validation](https://issues.redhat.com/browse/ROSA-667)
 
-_Before building HCP lifecycle or customer-facing APIs, we invested in CI and testing. M2 establishes the testing foundation so that every change going forward is validated automatically._
+_Investing first in CI and testing. M2 establishes the testing foundation. Every change going forward is validated automatically._
 
 ---
 
@@ -24,11 +24,12 @@ _Before building HCP lifecycle or customer-facing APIs, we invested in CI and te
 
 <div></div>
 
-M1 used **manual Terraform**. Now, everything is **GitOps-driven** via [`deploy/`](https://github.com/openshift-online/rosa-regional-platform/tree/main/deploy).
+M1 used **manual Terraform**. Now, everything is **GitOps-driven** via [`deploy/`](https://github.com/openshift-online/rosa-regional-platform/tree/main/deploy) (generated from [config/](https://github.com/openshift-online/rosa-regional-platform/tree/main/config)).
 
 - **ArgoCD** syncs [workloads](https://github.com/openshift-online/rosa-regional-platform/tree/main/argocd/config) to Regional / Management Clusters
 - **[AWS CodePipelines](https://aws.amazon.com/codepipeline/)** handle infrastructure changes and new region/MC provisioning
 - Every component (application or infra) that constitutes a region has a **defined version in Git**
+- Every component version can be **replaced** on a per environment, sector or specific region basis
 
 ---
 
@@ -58,6 +59,8 @@ API supports **Management Clusters** and **Manifest Works** CRUD with status fee
 
 # Testing Strategy
 
+<div></div>
+
 We test against two types of environments:
 
 <div class="grid grid-cols-2 gap-8">
@@ -83,6 +86,8 @@ We test against two types of environments:
 
 # Pre-merge Validation (every PR)
 
+<div></div>
+
 All jobs run on **OpenShift CI** (Prow + ci-operator).
 
 - `terraform-validate` - validates all Terraform root modules
@@ -96,10 +101,10 @@ All jobs run on **OpenShift CI** (Prow + ci-operator).
 
 <div></div>
 
-| Job | Runs the Testing Suite against |
-|-----|-------------------------------|
-| `nightly-ephemeral` | An ephemeral environment provisioned from `main` |
-| `nightly-integration` | The long-lived Integration environment |
+| Job                   | Runs the Testing Suite against                   |
+| --------------------- | ------------------------------------------------ |
+| `nightly-ephemeral`   | An ephemeral environment provisioned from `main` |
+| `nightly-integration` | The long-lived Integration environment           |
 
 Weekly `ephemeral-resources-janitor` cleans up CI AWS accounts via `aws-nuke`.
 
@@ -119,8 +124,6 @@ Built with **Ginkgo**, reusable against **any environment**.
 
 - **Platform API** e2e tests (Manifest Works lifecycle + status feedback)
 
-<br/>
-
 ## Next
 
 - **HCP lifecycle**: create, get, update, delete HostedClusters and NodePools
@@ -131,33 +134,43 @@ Built with **Ginkgo**, reusable against **any environment**.
 
 # How Ephemeral Tests Work — Fork & Configure
 
+<div></div>
+
 Everything is **GitOps-driven** - CI clones the target branch into a **CI-owned fork** with an `e2e` environment definition.
 
 <img src="./diagrams/provisioning-phase-1.png" alt="CI Environment Provider cloning target branch and pushing to CI-owned fork" class="h-70 mx-auto" />
+
+As part of the gitops flow, commits are added to the fork (source branch is not modified)
 
 ---
 
 # How Ephemeral Tests Work — Create Root Pipeline
 
+<div></div>
+
 A **root pipeline** is created that consumes the CI-owned fork for provisioning.
 
-<img src="./diagrams/provisioning-phase-2.png" alt="CI-owned fork creating root pipeline for environment provisioning" class="h-70 mx-auto" />
+<img src="./diagrams/provisioning-phase-2.png" alt="CI-owned fork creating root pipeline for environment provisioning" class="h-100 mx-auto" />
 
 ---
 
 # How Ephemeral Tests Work — Provisioned Environment
 
+<div></div>
+
 Environment spun up using **infrastructure and workload config from the original branch**. Testing Suite runs against it.
 
-<img src="./diagrams/provisioning-phase-result.png" alt="Fully provisioned ephemeral test environment with Regional and Management Clusters" class="h-70 mx-auto" />
+<img src="./diagrams/provisioning-phase-result.png" alt="Fully provisioned ephemeral test environment with Regional and Management Clusters" class="h-80 mx-auto" />
 
 ---
 
 # How Ephemeral Tests Work — Teardown
 
+<div></div>
+
 Teardown is also **GitOps-driven**. `delete: true` is committed to the config, and pipelines tear down all infrastructure.
 
-<img src="./diagrams/deprovisioning-phase-1.png" alt="CI Environment Provider committing delete:true to trigger teardown" class="h-70 mx-auto" />
+<img src="./diagrams/deprovisioning-phase-1.png" alt="CI Environment Provider committing delete:true to trigger teardown" class="h-90 mx-auto" />
 
 ---
 
@@ -165,10 +178,12 @@ Teardown is also **GitOps-driven**. `delete: true` is committed to the config, a
 
 <div></div>
 
-Our goal is to hook up ephemeral pre-merge tests to **every component repository** that constitutes the platform.
+Our goal is to hook up ephemeral pre-merge tests to **every component repository** that constitutes the platform (e.g. Hypershift, CLM, RHOBS, Platform API, etc).
+
+The goal is to **validate** new versions of components do *not break* ROSA Regional Platform before they are merged.
 
 - Environment provisioned from `main` of rosa-regional-platform
-- **Only your component is replaced** with the PR version
+- **Only the tested component is replaced** with the PR version
 - Full Testing Suite runs against it
 
 ---
