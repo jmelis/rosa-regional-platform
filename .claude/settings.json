@@ -4,7 +4,13 @@
       "WebFetch(domain:registry.terraform.io)",
       "WebFetch(domain:docs.aws.amazon.com)",
       "WebFetch(domain:docs.openshift.com)",
-      "Bash(make terraform-fmt)"
+      "WebFetch(domain:prow.ci.openshift.org)",
+      "WebFetch(domain:gcsweb-ci.apps.ci.l2s4.p1.openshiftapps.com)",
+      "Bash(make terraform-fmt)",
+      "Bash(git show:*)",
+      "Bash(git ls-tree:*)",
+      "Bash(git fetch:*)",
+      "Bash(gh pr view:*)"
     ],
     "deny": [],
     "ask": []
