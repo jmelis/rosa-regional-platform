@@ -66,6 +66,9 @@ export TF_VAR_container_image="${PLATFORM_IMAGE}"
 
 export TF_VAR_enable_bastion="${ENABLE_BASTION}"
 
+# Load node_instance_types from deploy config (should be set in config.yaml)
+export TF_VAR_node_instance_types=$(jq -c '.node_instance_types_regional' "$DEPLOY_CONFIG_FILE")
+
 # Set DNS variables (optional — when ENVIRONMENT_DOMAIN is set, creates regional
 # DNS zone and custom API domain)
 if [ -n "${ENVIRONMENT_DOMAIN:-}" ]; then
@@ -88,6 +91,7 @@ echo "  Repository URL: $TF_VAR_repository_url"
 echo "  Repository Branch: $TF_VAR_repository_branch"
 echo "  API Additional Allowed Accounts: $TF_VAR_api_additional_allowed_accounts"
 echo "  Enable Bastion: $TF_VAR_enable_bastion"
+echo "  Node Instance Types: $TF_VAR_node_instance_types"
 echo "  Environment Domain: ${TF_VAR_environment_domain:-<not set>}"
 echo "  Environment Hosted Zone ID: ${TF_VAR_environment_hosted_zone_id:-<not set>}"
 echo "  Regional ID: $TF_VAR_regional_id"

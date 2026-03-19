@@ -61,10 +61,22 @@ def _create_config_structure(
     config_dir = tmp_path / "config"
     config_dir.mkdir(exist_ok=True)
 
-    # Global defaults (always create, even if empty)
-    (config_dir / "defaults.yaml").write_text(
-        yaml.dump(global_defaults if global_defaults is not None else {})
-    )
+    # Start with base required fields (mirrors real config/defaults.yaml)
+    base_defaults = {
+        "terraform_common": {
+            "node_instance_types_management": ["t3.medium", "t3a.medium"],
+            "node_instance_types_regional": ["t3.medium", "t3a.medium"],
+        }
+    }
+
+    # Merge test-provided defaults on top
+    if global_defaults:
+        final_defaults = deep_merge(base_defaults, global_defaults)
+    else:
+        final_defaults = base_defaults
+
+    # Global defaults (always create)
+    (config_dir / "defaults.yaml").write_text(yaml.dump(final_defaults))
 
     # Copy real templates
     templates_dest = config_dir / "templates"
@@ -1536,6 +1548,131 @@ class TestMainIntegration:
         )
         data = json.loads(tf_file.read_text())
         assert data["domain"] == "int0.rosa.devshift.net"
+
+    def test_instance_types_default_values(self, tmp_path):
+        """Instance types should have default values from defaults.yaml"""
+        deploy_dir = self._run_main(
+            tmp_path,
+            global_defaults={
+                "aws": {"account_id": "111", "management_cluster_account_id": "222"},
+                "terraform_common": {
+                    "node_instance_types_management": ["t3.medium", "t3a.medium"],
+                    "node_instance_types_regional": ["t3.medium", "t3a.medium"],
+                },
+            },
+            environments={
+                "test": {
+                    "defaults": {},
+                    "regions": {
+                        "us-east-1": {"management_clusters": {"mc01": {}}},
+                    },
+                }
+            },
+        )
+
+        # Check MC terraform.json
+        mc_file = (
+            deploy_dir
+            / "test"
+            / "us-east-1"
+            / "pipeline-management-cluster-mc01-inputs"
+            / "terraform.json"
+        )
+        mc_data = json.loads(mc_file.read_text())
+        assert mc_data["node_instance_types_management"] == ["t3.medium", "t3a.medium"]
+
+        # Check RC terraform.json
+        rc_file = (
+            deploy_dir
+            / "test"
+            / "us-east-1"
+            / "pipeline-regional-cluster-inputs"
+            / "terraform.json"
+        )
+        rc_data = json.loads(rc_file.read_text())
+        assert rc_data["node_instance_types_regional"] == ["t3.medium", "t3a.medium"]
+
+    def test_instance_types_environment_override(self, tmp_path):
+        """Instance types can be overridden at environment level"""
+        deploy_dir = self._run_main(
+            tmp_path,
+            global_defaults={
+                "aws": {"account_id": "111", "management_cluster_account_id": "222"},
+                "terraform_common": {
+                    "node_instance_types_management": ["t3.medium"],
+                    "node_instance_types_regional": ["t3.medium"],
+                },
+            },
+            environments={
+                "prod": {
+                    "defaults": {
+                        "terraform_common": {
+                            "node_instance_types_management": ["m5.large", "m5a.large"],
+                            "node_instance_types_regional": ["m5.xlarge", "m5a.xlarge"],
+                        }
+                    },
+                    "regions": {
+                        "us-east-1": {"management_clusters": {"mc01": {}}},
+                    },
+                }
+            },
+        )
+
+        mc_file = (
+            deploy_dir
+            / "prod"
+            / "us-east-1"
+            / "pipeline-management-cluster-mc01-inputs"
+            / "terraform.json"
+        )
+        mc_data = json.loads(mc_file.read_text())
+        assert mc_data["node_instance_types_management"] == ["m5.large", "m5a.large"]
+
+        rc_file = (
+            deploy_dir
+            / "prod"
+            / "us-east-1"
+            / "pipeline-regional-cluster-inputs"
+            / "terraform.json"
+        )
+        rc_data = json.loads(rc_file.read_text())
+        assert rc_data["node_instance_types_regional"] == ["m5.xlarge", "m5a.xlarge"]
+
+    def test_instance_types_region_override(self, tmp_path):
+        """Instance types can be overridden at region level"""
+        deploy_dir = self._run_main(
+            tmp_path,
+            global_defaults={
+                "aws": {"account_id": "111", "management_cluster_account_id": "222"},
+                "terraform_common": {
+                    "node_instance_types_management": ["t3.medium"],
+                    "node_instance_types_regional": ["t3.medium"],
+                },
+            },
+            environments={
+                "test": {
+                    "defaults": {},
+                    "regions": {
+                        "us-east-1": {
+                            "terraform_common": {
+                                "node_instance_types_regional": ["c5.2xlarge"],
+                            },
+                            "management_clusters": {"mc01": {}},
+                        },
+                    },
+                }
+            },
+        )
+
+        rc_file = (
+            deploy_dir
+            / "test"
+            / "us-east-1"
+            / "pipeline-regional-cluster-inputs"
+            / "terraform.json"
+        )
+        rc_data = json.loads(rc_file.read_text())
+        assert rc_data["node_instance_types_regional"] == ["c5.2xlarge"]
 
 
 # =============================================================================

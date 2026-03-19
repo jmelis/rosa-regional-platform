@@ -1,2 +1,3 @@
 management_clusters:
-  mc01: {}
+  mc01:
+    node_instance_types_management: ["t4g.xlarge"]

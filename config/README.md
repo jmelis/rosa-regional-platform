@@ -105,6 +105,8 @@ terraform_common:
   service_phase: "dev"
   cost_center: "000"
   enable_bastion: false
+  node_instance_types_management: ["t3.medium", "t3a.medium"]
+  node_instance_types_regional: ["t3.medium", "t3a.medium"]
 
 applications:
   regional-cluster:
@@ -147,4 +149,60 @@ terraform_common:
 management_clusters:
   mc01:
     account_id: "910485845704"
+```
+
+### Configuring EC2 instance types
+
+Instance types can be customized at multiple levels via inheritance.
+
+**For Management Clusters** — Inheritance chain:
+
+```
+defaults.yaml (terraform_common.node_instance_types_management)
+  ↓ override at environment level
+<env>/defaults.yaml (terraform_common.node_instance_types_management)
+  ↓ override at region level
+<env>/<region>.yaml (terraform_common.node_instance_types_management)
+  ↓ override per-MC (most specific)
+<env>/<region>.yaml → management_clusters.mc01.node_instance_types_management
+```
+
+**For Regional Clusters** — Inheritance chain:
+
+```
+defaults.yaml (terraform_common.node_instance_types_regional)
+  ↓ override at environment level
+<env>/defaults.yaml (terraform_common.node_instance_types_regional)
+  ↓ override at region level (two options)
+<env>/<region>.yaml:
+  - terraform_common.node_instance_types_regional  (via terraform_common)
+  - node_instance_types_regional                    (top-level field)
+```
+
+**Examples:**
+
+Environment-level override (affects all regions in environment):
+
+```yaml
+# integration/defaults.yaml
+terraform_common:
+  node_instance_types_management: ["m5.large", "m5a.large"]
+  node_instance_types_regional: ["m5.xlarge", "m5a.xlarge"]
+```
+
+Region-level override (affects specific region):
+
+```yaml
+# psav-central/us-east-1.yaml
+terraform_common:
+  node_instance_types_regional: ["c5.2xlarge"]
+```
+
+Per-MC override (most specific, overrides all inheritance):
+
+```yaml
+# psav-central/us-east-1.yaml
+management_clusters:
+  mc01:
+    node_instance_types_management: ["t4g.xlarge"]
 ```
