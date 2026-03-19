@@ -1,4 +1,4 @@
-.PHONY: help terraform-fmt terraform-init terraform-validate terraform-upgrade terraform-output-management terraform-output-regional provision-management provision-regional apply-infra-management apply-infra-regional provision-maestro-agent-iot-regional cleanup-maestro-agent-iot destroy-management destroy-regional build-platform-image test-e2e helm-lint check-rendered-files ephemeral-preflight ephemeral-provision ephemeral-teardown ephemeral-resync ephemeral-list ephemeral-shell ephemeral-e2e
+.PHONY: help terraform-fmt terraform-init terraform-validate terraform-upgrade terraform-output-management terraform-output-regional provision-management provision-regional apply-infra-management apply-infra-regional provision-maestro-agent-iot-regional cleanup-maestro-agent-iot destroy-management destroy-regional build-platform-image test-e2e helm-lint check-rendered-files check-docs pre-push ephemeral-preflight ephemeral-provision ephemeral-teardown ephemeral-resync ephemeral-list ephemeral-shell ephemeral-e2e
 
 # Default target
 help:
@@ -26,9 +26,11 @@ help:
 	@echo "  terraform-output-regional             - Get Terraform output for Regional Cluster"
 	@echo ""
 	@echo "🧪 Validation & Testing:"
+	@echo "  pre-push                              - Run all CI validation checks (parallel)"
 	@echo "  terraform-validate                    - Check formatting and validate all Terraform configs"
 	@echo "  helm-lint                             - Lint all Helm charts"
 	@echo "  check-rendered-files                  - Verify deploy/ is up to date with config.yaml"
+	@echo "  check-docs                            - Check documentation formatting"
 	@echo "  test-e2e                              - Run end-to-end tests"
 	@echo ""
 	@echo "🔄 Ephemeral Developer Environments (shared dev accounts):"
@@ -397,6 +399,20 @@ check-rendered-files:
 		exit 1; \
 	fi
 	@echo "✅ Rendered files are up to date"
+
+# Check documentation formatting with prettier
+check-docs:
+	@echo "🔍 Checking documentation formatting..."
+	@npx --no-install prettier --check '**/*.md'
+	@echo "✅ Documentation formatting check complete"
+
+# Run all CI validation checks in parallel
+pre-push:
+	@echo "🚀 Running all CI validation checks..."
+	@echo ""
+	@$(MAKE) -j4 check-docs check-rendered-files helm-lint terraform-validate
+	@echo ""
+	@echo "✅ All pre-push checks passed!"
 
 # =============================================================================
 # Ephemeral Environments
