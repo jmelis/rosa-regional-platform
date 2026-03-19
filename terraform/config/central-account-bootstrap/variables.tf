@@ -43,3 +43,13 @@ variable "environment" {
   }
 }
 
+# =============================================================================
+# Notifications Configuration
+# =============================================================================
+
+variable "slack_webhook_ssm_param" {
+  type        = string
+  description = "SSM Parameter Store path containing the Slack webhook URL (only required for staging, production, integration environments)"
+  default     = "/rosa-regional/slack/webhook-url"
+}
+

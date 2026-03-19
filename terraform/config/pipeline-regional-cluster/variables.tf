@@ -69,3 +69,13 @@ variable "environment_hosted_zone_id" {
   description = "Route53 hosted zone ID for the environment domain in the central account. Used by the regional pipeline for NS delegation."
   default     = ""
 }
+
+# =============================================================================
+# Notifications Configuration
+# =============================================================================
+
+variable "slack_webhook_ssm_param" {
+  type        = string
+  description = "SSM Parameter Store path containing the Slack webhook URL (only required for staging, production, integration environments)"
+  default     = "/rosa-regional/slack/webhook-url"
+}

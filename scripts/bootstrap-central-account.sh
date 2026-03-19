@@ -40,6 +40,8 @@ ENVIRONMENT VARIABLES:
     GITHUB_REPOSITORY   GitHub repository in owner/name format (e.g., 'openshift-online/rosa-regional-platform')
     GITHUB_BRANCH       Git branch to track (default: main)
     TARGET_ENVIRONMENT  Environment to monitor (default: staging)
+    SLACK_WEBHOOK_SSM_PARAM  SSM Parameter Store path containing Slack webhook URL (optional, only for stage/staging/production/integration)
+                             Default: /rosa-regional/slack/webhook-url
     AWS_PROFILE         AWS CLI profile to use
 
 EXAMPLES:
@@ -129,12 +131,57 @@ GITHUB_REPOSITORY="${GITHUB_REPOSITORY:-openshift-online/rosa-regional-platform}
 GITHUB_BRANCH="${GITHUB_BRANCH:-main}"
 TARGET_ENVIRONMENT="${TARGET_ENVIRONMENT:-staging}"
 NAME_PREFIX="${NAME_PREFIX:-}"
+SLACK_WEBHOOK_SSM_PARAM="${SLACK_WEBHOOK_SSM_PARAM:-/rosa-regional/slack/webhook-url}"
 
 # Validate repository format (must be owner/name)
 if [[ ! "$GITHUB_REPOSITORY" =~ ^[^/]+/[^/]+$ ]]; then
     echo "❌ Error: GITHUB_REPOSITORY must be in 'owner/name' format"
     echo "   Example: openshift-online/rosa-regional-platform"
     exit 1
+fi
+
+# Helper function to check if element is in array
+contains_element() {
+    local element="$1"
+    shift
+    local arr=("$@")
+    for e in "${arr[@]}"; do
+        [[ "$e" == "$element" ]] && return 0
+    done
+    return 1
+}
+
+# Verify SSM parameter for monitored environments
+# Must match Terraform: terraform/config/central-account-bootstrap/main.tf
+MONITORED_ENVS=("stage" "staging" "production" "integration")
+SLACK_NOTIFICATIONS_ENABLED=false
+if contains_element "$TARGET_ENVIRONMENT" "${MONITORED_ENVS[@]}"; then
+    # This environment requires Slack notifications
+    # Verify the SSM parameter exists (Lambda will fetch the actual value at runtime)
+    echo "Verifying Slack webhook SSM parameter: $SLACK_WEBHOOK_SSM_PARAM"
+
+    if aws ssm get-parameter \
+        --name "$SLACK_WEBHOOK_SSM_PARAM" \
+        --query 'Parameter.Name' \
+        --output text \
+        --region "$REGION" >/dev/null 2>&1; then
+        echo "✅ SSM parameter verified: $SLACK_WEBHOOK_SSM_PARAM"
+        SLACK_NOTIFICATIONS_ENABLED=true
+    else
+        # For monitored environments, fail fast if SSM parameter doesn't exist
+        echo "❌ Error: SSM parameter not found: $SLACK_WEBHOOK_SSM_PARAM"
+        echo "   Environment '$TARGET_ENVIRONMENT' requires Slack notifications."
+        echo "   Please ensure the SSM parameter exists and contains a valid webhook URL."
+        echo ""
+        echo "   To create the parameter, run:"
+        echo "   aws ssm put-parameter --name '$SLACK_WEBHOOK_SSM_PARAM' \\"
+        echo "     --value 'https://hooks.slack.com/services/...' \\"
+        echo "     --type SecureString --region $REGION"
+        exit 1
+    fi
+else
+    # Non-monitored environment - notifications not required
+    echo "ℹ️  Environment '${TARGET_ENVIRONMENT}' does not require Slack notifications (skipping)"
 fi
 
 echo ""
@@ -145,6 +192,11 @@ echo "  GitHub Repo:        $GITHUB_REPOSITORY"
 echo "  GitHub Branch:      $GITHUB_BRANCH"
 echo "  Target Environment: $TARGET_ENVIRONMENT"
 echo "  Name Prefix:        ${NAME_PREFIX:-<none>}"
+if [[ "$SLACK_NOTIFICATIONS_ENABLED" == "true" ]]; then
+    echo "  Slack Notifications: enabled (SSM: $SLACK_WEBHOOK_SSM_PARAM)"
+else
+    echo "  Slack Notifications: disabled"
+fi
 echo ""
 echo "✅ Proceeding with bootstrap..."
 
@@ -250,15 +302,15 @@ terraform import -var="github_repository=${GITHUB_REPOSITORY}" \
 
 # Create tfvars file
 cat > terraform.tfvars <<EOF
-github_repository = "${GITHUB_REPOSITORY}"
-github_branch     = "${GITHUB_BRANCH}"
-region            = "${REGION}"
-environment       = "${TARGET_ENVIRONMENT}"
-name_prefix       = "${NAME_PREFIX}"
+github_repository     = "${GITHUB_REPOSITORY}"
+github_branch         = "${GITHUB_BRANCH}"
+region                = "${REGION}"
+environment           = "${TARGET_ENVIRONMENT}"
+name_prefix           = "${NAME_PREFIX}"
+slack_webhook_ssm_param = "${SLACK_WEBHOOK_SSM_PARAM}"
 EOF
 
-echo "Terraform configuration created:"
-cat terraform.tfvars
+echo "Terraform configuration created (terraform.tfvars)"
 echo ""
 
 # Run terraform plan
