@@ -65,7 +65,7 @@ terraform-output-regional:
 # Initialize root Terraform configurations (no backend)
 terraform-init:
 	@echo "🔧 Initializing Terraform configurations..."
-	@echo "$(TERRAFORM_ROOT_DIRS)" | tr ' ' '\n' | xargs -P 8 -I {} sh -c ' \
+	@echo "$(TERRAFORM_ROOT_DIRS)" | tr ' ' '\n' | xargs -P 1 -I {} sh -c ' \
 		echo "   Initializing {}"; \
 		if ! terraform -chdir={} init -backend=false; then \
 			echo "   ❌ Init failed in {}"; \
@@ -90,7 +90,7 @@ terraform-validate: terraform-init
 		echo "   Run '\''make terraform-fmt'\'' to fix formatting."; \
 		exit 1; }
 	@echo "🔍 Validating Terraform configurations..."
-	@echo "$(TERRAFORM_ROOT_DIRS)" | tr ' ' '\n' | xargs -P 8 -I {} sh -c ' \
+	@echo "$(TERRAFORM_ROOT_DIRS)" | tr ' ' '\n' | xargs -P 2 -I {} sh -c ' \
 		echo "   Validating {}"; \
 		if ! terraform -chdir={} validate; then \
 			echo "   ❌ Validation failed in {}"; \
