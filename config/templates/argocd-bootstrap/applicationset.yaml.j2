@@ -4,7 +4,8 @@
 # Cluster Type: {{ cluster_type }}
 # Environment: {{ environment }}
 # Region: {{ aws_region }}
-# Config Revision: {{ config_revision }}
+{%- set pinned = git.revision if (git.revision and git.revision != "main") else "" %}
+# Config Revision: {{ pinned[:8] if pinned else "metadata.annotations.git_revision" }}
 
 apiVersion: argoproj.io/v1alpha1
 kind: ApplicationSet
@@ -25,7 +26,7 @@ spec:
           - path: argocd/config/{{ '{{ .metadata.labels.cluster_type }}' }}/*
           - path: argocd/config/shared/*
           repoURL: '{{ '{{ .metadata.annotations.git_repo }}' }}'
-          revision: '{% if pinned_revision %}{{ pinned_revision }}{% else %}{{ "{{ .metadata.annotations.git_revision }}" }}{% endif %}'
+          revision: '{% if pinned %}{{ pinned }}{% else %}{{ "{{ .metadata.annotations.git_revision }}" }}{% endif %}'
   template:
     metadata:
       name: '{{ '{{ .path.basename }}' }}'
@@ -75,7 +76,7 @@ spec:
                 region: '{{ '{{ .metadata.labels.aws_region }}' }}'
         path: '{{ '{{ .path.path }}' }}'
         repoURL: '{{ '{{ .metadata.annotations.git_repo }}' }}'
-        targetRevision: '{% if pinned_revision %}{{ pinned_revision }}{% else %}{{ "{{ .metadata.annotations.git_revision }}" }}{% endif %}'
+        targetRevision: '{% if pinned %}{{ pinned }}{% else %}{{ "{{ .metadata.annotations.git_revision }}" }}{% endif %}'
       - repoURL: '{{ "{{ .metadata.annotations.git_repo | replace \"github.com\" \"github.com:443\" }}" }}'
         targetRevision: '{{ '{{ .metadata.annotations.git_revision }}' }}'
         ref: values

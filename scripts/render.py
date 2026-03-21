@@ -165,8 +165,7 @@ def build_context(
 ) -> dict[str, Any]:
     """Build the template context from merged config values."""
     ctx = dict(merged)
-    regional_id = f"{ci_prefix}-regional" if ci_prefix else "regional"
-    ctx.update(environment=env_name, aws_region=region, region=region, regional_id=regional_id)
+    ctx.update(environment=env_name, aws_region=region, ci_prefix=ci_prefix)
 
     # Resolve templated config values that other templates depend on
     aws = ctx.get("aws", {})
@@ -202,11 +201,12 @@ def build_mc_list(
 
 # Variables injected by render.py, not from config files.
 CONTEXT_VARS = {
-    "environment", "aws_region", "region", "regional_id",
-    "account_id", "management_cluster_account_ids",
-    "cluster_type", "config_revision", "pinned_revision",
+    "environment", "aws_region",
+    "account_id", "management_clusters",
+    "cluster_type",
     "application_values", "region_configs", "ci_prefix",
-    "delete", "delete_pipeline", "mc_key",
+    "delete", "delete_pipeline", "mc_key", "region",
+    "pinned", "mc_account_ids",
 }
 
 _DOC_RE = re.compile(r"^\s*#\s*(?:#\s*)?@doc\s+(\S+)\s+(.+)$", re.MULTILINE)
@@ -499,7 +499,6 @@ def main() -> int:
             ctx = build_context(merged, env_name, region, ci_prefix)
             mc_list = build_mc_list(ctx, merged, ci_prefix)
             ctx["management_clusters"] = mc_list
-            ctx["management_cluster_account_ids"] = [mc["account_id"] for mc in mc_list if mc.get("account_id")]
             env_region_mcs[env_name][region] = {mc["management_id"] for mc in mc_list}
 
             out_dir = deploy_dir / env_name / region
@@ -511,14 +510,10 @@ def main() -> int:
 
             # Per-cluster-type: ArgoCD values + bootstrap
             app_config = resolve_templates(ctx.get("applications", {}), ctx)
-            revision = ctx.get("git", {}).get("revision")
-            pinned = revision if (revision and revision != "main") else None
 
             for ct in cluster_types:
                 ct_ctx = {**ctx, "cluster_type": ct, "application_values": app_config.get(ct, {})}
                 render_file(templates_dir, "argocd-values.yaml", ct_ctx, out_dir / f"argocd-values-{ct}.yaml")
-                ct_ctx["config_revision"] = pinned[:8] if pinned else "metadata.annotations.git_revision"
-                ct_ctx["pinned_revision"] = pinned
                 render_file(templates_dir, "argocd-bootstrap/applicationset.yaml", ct_ctx, out_dir / f"argocd-bootstrap-{ct}" / "applicationset.yaml")
 
             # Per-MC templates
