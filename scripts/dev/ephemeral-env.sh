@@ -422,13 +422,15 @@ cmd_shell() {
             exec bash'
 }
 
-cmd_bastion() {
+# Shared bastion setup: select env, fetch creds, start/reuse ECS task.
+# Sets globals: BASTION_ECS_CLUSTER, BASTION_TASK_ID, BASTION_RUNTIME_ID
+setup_bastion() {
     local cluster_type="${1:-}"
 
     # Validate cluster type
     case "$cluster_type" in
         regional|management) ;;
-        *) die "Usage: $0 bastion <regional|management>" ;;
+        *) die "Usage: $0 <command> <regional|management>" ;;
     esac
 
     # Select environment (ready only)
@@ -452,7 +454,7 @@ cmd_bastion() {
     else
         cluster_id="${ci_prefix}-mc01"
     fi
-    local ecs_cluster="${cluster_id}-bastion"
+    BASTION_ECS_CLUSTER="${cluster_id}-bastion"
 
     # Fetch credentials from Vault
     fetch_creds
@@ -472,7 +474,7 @@ cmd_bastion() {
     echo "  CI prefix:    $ci_prefix"
     echo "  Cluster type: $cluster_type"
     echo "  Cluster ID:   $cluster_id"
-    echo "  ECS cluster:  $ecs_cluster"
+    echo "  ECS cluster:  $BASTION_ECS_CLUSTER"
     echo "  Region:       $region"
     echo ""
 
@@ -484,13 +486,12 @@ cmd_bastion() {
     # Check for an existing running task
     echo "==> Checking for running bastion tasks..."
     local existing_task
-    existing_task=$(aws ecs list-tasks --cluster "$ecs_cluster" \
+    existing_task=$(aws ecs list-tasks --cluster "$BASTION_ECS_CLUSTER" \
         --desired-status RUNNING --query 'taskArns[0]' --output text 2>/dev/null || true)
 
-    local task_id
     if [[ -n "$existing_task" && "$existing_task" != "None" ]]; then
-        task_id=$(echo "$existing_task" | awk -F'/' '{print $NF}')
-        echo "==> Found existing running task: $task_id"
+        BASTION_TASK_ID=$(echo "$existing_task" | awk -F'/' '{print $NF}')
+        echo "==> Found existing running task: $BASTION_TASK_ID"
     else
         echo "==> No running task found, starting a new one..."
 
@@ -522,27 +523,27 @@ cmd_bastion() {
         echo "    Subnets:   $subnets"
 
         AWS_PAGER="" aws ecs run-task \
-            --cluster "$ecs_cluster" \
+            --cluster "$BASTION_ECS_CLUSTER" \
             --task-definition "$task_def" \
             --launch-type FARGATE \
             --enable-execute-command \
             --network-configuration "awsvpcConfiguration={subnets=[$subnets],securityGroups=[$sg_id],assignPublicIp=DISABLED}" \
             > /dev/null
 
-        task_id=$(aws ecs list-tasks --cluster "$ecs_cluster" \
+        BASTION_TASK_ID=$(aws ecs list-tasks --cluster "$BASTION_ECS_CLUSTER" \
             --query 'taskArns[0]' --output text | awk -F'/' '{print $NF}')
     fi
 
     # Wait for task to be running
     echo "==> Waiting for task to be running..."
-    aws ecs wait tasks-running --cluster "$ecs_cluster" --tasks "$task_id"
+    aws ecs wait tasks-running --cluster "$BASTION_ECS_CLUSTER" --tasks "$BASTION_TASK_ID"
 
     # Wait for the ECS exec agent to be ready
     echo "==> Waiting for execute command agent..."
     local agent_status=""
     for i in $(seq 1 30); do
         agent_status=$(aws ecs describe-tasks \
-            --cluster "$ecs_cluster" --tasks "$task_id" --output json \
+            --cluster "$BASTION_ECS_CLUSTER" --tasks "$BASTION_TASK_ID" --output json \
             | jq -r '.tasks[0].containers[] | select(.name=="bastion") | .managedAgents[] | select(.name=="ExecuteCommandAgent") | .lastStatus' 2>/dev/null || true)
         if [[ "$agent_status" == "RUNNING" ]]; then
             break
@@ -552,21 +553,144 @@ cmd_bastion() {
     [[ "$agent_status" == "RUNNING" ]] \
         || die "Execute command agent did not become ready (status: ${agent_status:-unknown})"
 
+    # Get runtime ID (needed for SSM port forwarding target)
+    BASTION_RUNTIME_ID=$(aws ecs describe-tasks \
+        --cluster "$BASTION_ECS_CLUSTER" \
+        --tasks "$BASTION_TASK_ID" \
+        --query 'tasks[0].containers[?name==`bastion`].runtimeId | [0]' \
+        --output text)
+    [[ -n "$BASTION_RUNTIME_ID" && "$BASTION_RUNTIME_ID" != "None" ]] \
+        || die "Could not get runtime ID for task '$BASTION_TASK_ID'."
+
     echo ""
     echo "==> Bastion task ready"
-    echo "    ECS cluster: $ecs_cluster"
-    echo "    Task ID:     $task_id"
+    echo "    ECS cluster:  $BASTION_ECS_CLUSTER"
+    echo "    Task ID:      $BASTION_TASK_ID"
+    echo "    Runtime ID:   $BASTION_RUNTIME_ID"
     echo ""
+}
+
+cmd_bastion() {
+    setup_bastion "${1:-}"
+
     echo "==> Connecting to bastion..."
     echo ""
 
     # Connect via ECS Exec
     aws ecs execute-command \
-        --cluster "$ecs_cluster" \
-        --task "$task_id" \
+        --cluster "$BASTION_ECS_CLUSTER" \
+        --task "$BASTION_TASK_ID" \
         --container bastion \
         --interactive \
         --command '/bin/bash'
+}
+
+cmd_port_forward() {
+    local cluster_type="${1:-}"
+    local service="${2:-argocd}"
+    local local_port="${3:-8443}"
+
+    setup_bastion "$cluster_type"
+
+    # Define forwarding targets per service
+    local k8s_svc k8s_ns k8s_svc_port remote_port label
+    case "$service" in
+        argocd)
+            label="ArgoCD"
+            k8s_svc="argocd-server"
+            k8s_ns="argocd"
+            k8s_svc_port="443"
+            remote_port="$local_port"
+            ;;
+        maestro)
+            [[ "$cluster_type" == "regional" ]] \
+                || die "maestro is only available on regional clusters."
+            label="Maestro"
+            k8s_svc="maestro-http"
+            k8s_ns="maestro-server"
+            k8s_svc_port="8080"
+            remote_port="$local_port"
+            ;;
+        *)
+            die "Unknown service '$service'. Supported: argocd, maestro"
+            ;;
+    esac
+
+    # Check local port is free
+    if lsof -iTCP:"$local_port" -sTCP:LISTEN -t &>/dev/null; then
+        die "Local port ${local_port} is already in use. Kill the process first: lsof -iTCP:${local_port} -sTCP:LISTEN"
+    fi
+
+    local SSM_PID=""
+    cleanup() {
+        echo ""
+        echo "Stopping port-forward sessions..."
+        [[ -n "$SSM_PID" ]] && kill "$SSM_PID" 2>/dev/null || true
+    }
+    trap cleanup EXIT
+
+    local target="ecs:${BASTION_ECS_CLUSTER}_${BASTION_TASK_ID}_${BASTION_RUNTIME_ID}"
+
+    # Kill stale port-forwards on bastion
+    echo "==> Cleaning up stale port-forwards on bastion..."
+    aws ecs execute-command \
+        --cluster "$BASTION_ECS_CLUSTER" \
+        --task "$BASTION_TASK_ID" \
+        --container bastion \
+        --interactive \
+        --command "pkill -f kubectl.port-forward || true" &>/dev/null || true
+    sleep 2
+
+    # Start kubectl port-forward inside the bastion
+    echo "==> [bastion] kubectl port-forward svc/${k8s_svc} ${remote_port}:${k8s_svc_port} -n ${k8s_ns}"
+    aws ecs execute-command \
+        --cluster "$BASTION_ECS_CLUSTER" \
+        --task "$BASTION_TASK_ID" \
+        --container bastion \
+        --interactive \
+        --command "kubectl port-forward svc/${k8s_svc} ${remote_port}:${k8s_svc_port} -n ${k8s_ns} --address 0.0.0.0" &
+
+    echo ""
+    echo "==> Waiting for kubectl port-forward to be ready..."
+    sleep 5
+
+    # SSM port forward from laptop to bastion
+    echo "==> [local] SSM forwarding ${label} (localhost:${local_port} -> bastion:${remote_port})..."
+    aws ssm start-session \
+        --target "$target" \
+        --document-name AWS-StartPortForwardingSession \
+        --parameters "{\"portNumber\":[\"${remote_port}\"],\"localPortNumber\":[\"${local_port}\"]}" &
+    SSM_PID=$!
+
+    # For ArgoCD, fetch and display the admin password
+    if [[ "$service" == "argocd" ]]; then
+        echo ""
+        echo "==> Fetching ArgoCD admin password..."
+        local pass_output argocd_pass
+        pass_output=$(aws ecs execute-command \
+            --cluster "$BASTION_ECS_CLUSTER" \
+            --task "$BASTION_TASK_ID" \
+            --container bastion \
+            --interactive \
+            --command "sh -c \"echo ARGOCD_PW=\$(kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath={.data.password} | base64 -d)\"" 2>/dev/null || true)
+        argocd_pass=$(echo "$pass_output" | grep -o 'ARGOCD_PW=.*' | cut -d= -f2 | tr -d '[:space:]')
+        echo ""
+        echo "    ArgoCD UI:       https://localhost:${local_port}"
+        echo "    Username:        admin"
+        if [[ -n "$argocd_pass" ]]; then
+            echo "    Password:        ${argocd_pass}"
+        else
+            echo "    Password:        (could not retrieve - run on bastion manually):"
+            echo "                     kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath={.data.password} | base64 -d"
+        fi
+    fi
+
+    echo ""
+    echo "==> Port forwarding active: ${label} on localhost:${local_port}"
+    echo "Press Ctrl+C to stop."
+
+    # Wait for SSM session — if it dies, tear everything down
+    wait "$SSM_PID" 2>/dev/null || true
 }
 
 cmd_e2e() {
@@ -617,9 +741,9 @@ case "${1:-help}" in
     list) cmd_list; exit 0 ;;
 esac
 
-# Bastion needs vault + aws but not container engine
+# Bastion / port-forward need vault + aws but not container engine
 case "${1:-help}" in
-    bastion)
+    bastion|port-forward)
         for tool in vault aws; do
             command -v "$tool" >/dev/null 2>&1 || die "Missing required tool: $tool"
         done
@@ -632,22 +756,24 @@ case "${1:-help}" in
 esac
 
 case "${1:-help}" in
-    provision) cmd_provision ;;
-    teardown)  cmd_teardown ;;
-    resync)    cmd_resync ;;
-    shell)     cmd_shell ;;
-    bastion)   cmd_bastion "$2" ;;
-    e2e)       cmd_e2e ;;
+    provision)     cmd_provision ;;
+    teardown)      cmd_teardown ;;
+    resync)        cmd_resync ;;
+    shell)         cmd_shell ;;
+    bastion)       cmd_bastion "$2" ;;
+    port-forward)  cmd_port_forward "${2:-}" "${3:-argocd}" "${4:-8443}" ;;
+    e2e)           cmd_e2e ;;
     help|*)
         echo "Usage: $0 <command>"
         echo ""
         echo "Commands:"
-        echo "  provision   Provision an ephemeral environment"
-        echo "  teardown    Tear down an ephemeral environment"
-        echo "  resync      Resync an ephemeral environment to your branch"
-        echo "  list        List ephemeral environments"
-        echo "  shell       Interactive shell for Platform API access"
-        echo "  bastion     Connect to RC/MC bastion in an ephemeral env"
-        echo "  e2e         Run e2e tests against an ephemeral env"
+        echo "  provision      Provision an ephemeral environment"
+        echo "  teardown       Tear down an ephemeral environment"
+        echo "  resync         Resync an ephemeral environment to your branch"
+        echo "  list           List ephemeral environments"
+        echo "  shell          Interactive shell for Platform API access"
+        echo "  bastion        Connect to RC/MC bastion in an ephemeral env"
+        echo "  port-forward   Port-forward a service (argocd, maestro) via bastion"
+        echo "  e2e            Run e2e tests against an ephemeral env"
         ;;
 esac
