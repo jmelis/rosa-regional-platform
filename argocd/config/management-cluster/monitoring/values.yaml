@@ -21,7 +21,7 @@ kube-prometheus-stack:
       # This prevents us from scheduling prometheus pods on the same node
       # or within the same AZ, so that we have at least one zone with a replica
       podAntiAffinity: "hard"
-      podAntiAffinityTopologyKey: "failure-domain.beta.kubernetes.io/zone"
+      podAntiAffinityTopologyKey: "topology.kubernetes.io/zone"
 
       storageSpec:
         volumeClaimTemplate:
