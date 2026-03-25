@@ -17,6 +17,8 @@ kube-prometheus-stack:
       replicas: 2
       retention: "14d"
       retentionSize: "85GB"
+      serviceMonitorNamespaceSelector: {}
+      serviceMonitorSelector: {}
 
       # This prevents us from scheduling prometheus pods within the same AZ,
       # so that we have at least one zone with a replica
