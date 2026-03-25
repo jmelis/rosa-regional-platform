@@ -25,6 +25,8 @@ help:
 	@echo "  ephemeral-bastion-mc                  - Connect to MC bastion in an ephemeral env"
 	@echo "  ephemeral-port-forward-rc             - Create a port-forward session to RC service in an ephemeral env"
 	@echo "  ephemeral-port-forward-mc             - Create a port-forward session to MC service in an ephemeral env"
+	@echo "  ephemeral-port-forward-rc-all         - Automatically port forward all services for an RC in an ephemeral env"
+	@echo "  ephemeral-port-forward-mc-all         - Automatically port forward all services for an MC in an ephemeral env"
 	@echo "  ephemeral-e2e                         - Run e2e tests against an ephemeral env"
 	@echo ""
 	@echo "  help                                  - Show this help message"
