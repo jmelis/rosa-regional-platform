@@ -233,5 +233,4 @@ module "thanos_infrastructure" {
   metrics_retention_days = var.thanos_metrics_retention_days
   thanos_namespace       = var.thanos_namespace
   thanos_service_account = var.thanos_service_account
-  allow_non_fips_regions = var.allow_non_fips_regions
 }

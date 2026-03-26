@@ -39,8 +39,3 @@ variable "metrics_retention_days" {
   }
 }
 
-variable "allow_non_fips_regions" {
-  description = "Allow deployment to non-US regions without FIPS endpoints (not recommended for FedRAMP)"
-  type        = bool
-  default     = false
-}
