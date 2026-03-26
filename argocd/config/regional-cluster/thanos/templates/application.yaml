@@ -1,0 +1,35 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: thanos-operator-upstream
+  namespace: argocd
+  labels:
+    {{- include "thanos-operator.labels" . | nindent 4 }}
+  annotations:
+    {{- include "thanos-operator.annotations" . | nindent 4 }}
+    argocd.argoproj.io/sync-wave: "-1"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/thanos-community/thanos-operator
+    path: helm/chart
+    targetRevision: 4c1d812c9fd88127087de406e7b569da9b9186fa
+    helm:
+      valuesObject:
+        manager:
+          image:
+            repository: {{ .Values.operator.image.repository }}
+            tag: {{ .Values.operator.image.tag }}
+            pullPolicy: {{ .Values.operator.image.pullPolicy }}
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: {{ include "thanos-operator.namespace" . }}
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - ServerSideApply=true
+      - CreateNamespace=true

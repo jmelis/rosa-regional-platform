@@ -16,7 +16,6 @@ spec:
     hashrings:
       - name: default
         replicas: {{ .Values.receive.replicas }}
-        tenantMatcherType: exact
         tsdbConfig:
           retention: {{ .Values.receive.retention }}
         storage:

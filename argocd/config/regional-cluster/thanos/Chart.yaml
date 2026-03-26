@@ -1,12 +1,14 @@
 apiVersion: v2
 name: thanos-operator
-description: Thanos Operator (thanos-community) for cross-account metrics ingestion
+description: Slim wrapper deploying Thanos platform resources; operator itself comes from upstream thanos-community chart via app-of-apps
 type: application
-version: 0.2.0
+version: 0.3.0
 appVersion: "0.1.0-alpha"
 home: https://github.com/openshift-online/rosa-regional-platform
 sources:
+  - https://github.com/openshift-online/rosa-regional-platform
   - https://github.com/thanos-community/thanos-operator
+  - https://github.com/rhobs/rhobs-konflux-thanos-operator
   - https://github.com/thanos-io/thanos
 maintainers:
   - name: ROSA Regional Platform Team
@@ -18,5 +20,3 @@ keywords:
   - observability
   - rosa
   - eks
-
-# CRDs from thanos-community/thanos-operator (main branch)

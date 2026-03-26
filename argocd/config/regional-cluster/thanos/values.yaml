@@ -5,11 +5,11 @@
 # Operator configuration
 operator:
   image:
-    repository: quay.io/thanos/thanos-operator
-    # Use a specific commit-based tag for stability
-    # Format: main-YYYY-MM-DD-COMMIT
-    # TODO: Pin to a specific release tag once thanos-operator has stable releases
-    tag: main-2025-01-15-e8a4b2c
+    repository: quay.io/redhat-user-workloads/rhobs-mco-tenant/rhobs-thanos-operator-main/rhobs-thanos-operator-main
+    # UBI9-based image built and scanned by Red Hat RHOBS team via Konflux (Clair, ClamAV, Snyk, Coverity)
+    # Source: https://github.com/rhobs/rhobs-konflux-thanos-operator
+    # Digest: sha256:c4512873aecd1c8ca8c83d6ddad8fa9e55d4c0924cf9453d97280845d7934830
+    tag: f83fea08f2a9167647cd8a9fd72f682c638c3cbb
     pullPolicy: IfNotPresent
 
   logLevel: info
@@ -54,7 +54,7 @@ receive:
 
   storage:
     size: 50Gi
-    storageClass: ebs-immediate
+    storageClass: gp3
 
 # Thanos Query configuration
 query:
@@ -71,7 +71,7 @@ storeGateway:
 
   storage:
     size: 20Gi
-    storageClass: ebs-immediate
+    storageClass: gp3
 
 # Thanos Compactor configuration
 compactor:
@@ -83,7 +83,7 @@ compactor:
 
   storage:
     size: 50Gi
-    storageClass: ebs-immediate
+    storageClass: gp3
 
 # Thanos Ruler configuration (disabled by default)
 ruler:

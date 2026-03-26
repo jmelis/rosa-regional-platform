@@ -11,6 +11,6 @@ metadata:
 spec:
   replicas: {{ .Values.query.replicas | default 2 }}
   # Query will auto-discover stores via operator labels
-  queryFrontendSpec:
+  queryFrontend:
     replicas: {{ .Values.query.frontend.replicas | default 1 }}
 {{- end }}
