@@ -40,6 +40,7 @@ else
   echo "WARNING: No credentials found at ${CREDS_DIR}/regional_access_key"
 fi
 
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 API_REF="${API_REF:-main}"
 WORK_DIR="$(mktemp -d)"
 trap 'rm -rf "${WORK_DIR}"' EXIT
@@ -50,4 +51,26 @@ cd "${WORK_DIR}/api"
 go install github.com/onsi/ginkgo/v2/ginkgo@v2.28.1
 export PATH="$(go env GOPATH)/bin:${PATH}"
 
-make test-e2e
+rc=0
+make test-e2e || rc=$?
+
+if [[ $rc -ne 0 ]]; then
+    echo ""
+    echo "E2E tests failed (exit code: $rc). Collecting cluster logs..."
+
+    # Pre-existing environment (integration): bare cluster names (regional, mc01)
+    # Ephemeral environment: ci_prefix-based names derived from BUILD_ID
+    if [[ -r "${CREDS_DIR}/api_url" ]]; then
+        export CLUSTER_PREFIX=""
+    elif [[ -n "${BUILD_ID:-}" ]]; then
+        export CLUSTER_PREFIX="ci-$(echo -n "${BUILD_ID}" | sha256sum | cut -c1-6)-"
+    else
+        echo "WARNING: BUILD_ID not set — skipping log collection"
+    fi
+
+    if [[ -n "${CLUSTER_PREFIX+set}" ]]; then
+        LOG_OUTPUT_DIR="${ARTIFACT_DIR:-/tmp}/cluster-logs" \
+            "${REPO_ROOT}/scripts/dev/collect-cluster-logs.sh" || true
+    fi
+    exit $rc
+fi
