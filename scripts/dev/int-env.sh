@@ -56,13 +56,14 @@ usage_bastion() {
 }
 
 usage_port_forward() {
-    echo "Usage: $0 port-forward --cluster-type [value] [--all]"
+    echo "Usage: $0 port-forward --cluster-type [value] [--all | --service <name>]"
     echo ""
     echo "Opens port forwards to services running on a cluster"
     echo ""
     echo "Flags:"
-    echo "  --all           Automatically open all port forwards"
-    echo "  --cluster-type  Cluster type: \"regional\" or \"management\""
+    echo "  --all              Automatically open all port forwards"
+    echo "  --service <name>   Forward a specific service (maestro, argocd, prometheus)"
+    echo "  --cluster-type     Cluster type: \"regional\" or \"management\""
 }
 
 cluster_id_for() {
@@ -345,10 +346,14 @@ cmd_bastion() {
 cmd_port_forward() {
     local all_svcs=false
     local cluster_type
+    local SERVICE=""
 
     while [ "${1:-}" != "" ]; do
     case $1 in
         --all )                 all_svcs=true
+                                ;;
+        --service )             SERVICE="${2:-}"
+                                shift
                                 ;;
         --cluster-type )        cluster_type=${2:-}
                                 shift
@@ -382,10 +387,21 @@ cmd_port_forward() {
             regional )      services=$(printf '%s\n' "${regional_svc_list[@]}") ;;
             management )    services=$(printf '%s\n' "${management_svc_list[@]}") ;;
         esac
+    elif [[ -n "$SERVICE" ]]; then
+        services="$SERVICE"
+    elif command -v fzf >/dev/null 2>&1; then
+        if [ "$cluster_type" = "regional" ]; then
+            services=$(printf '%s\n' "${regional_svc_list[@]}" \
+                | fzf --multi --height=10 --layout=reverse --header="Select service (${cluster_type}):" --no-info)
+        else
+            services=$(printf '%s\n' "${management_svc_list[@]}" \
+                | fzf --multi --height=10 --layout=reverse --header="Select service (${cluster_type}):" --no-info)
+        fi
+        [[ -n "$services" ]] || { echo "Aborted."; exit 1; }
     else
-        die "Interactive service selection not supported. Use --all or specify services."
+        die "Use --all, --service <name>, or install fzf for interactive selection."
     fi
-    services=$(awk '{print $1}' <<< "$services")
+    services=$(awk '{print $1}' <<< "$services" | tr '\n' ' ')
 
     local forwards=()
     for service in $services
@@ -450,13 +466,21 @@ cmd_port_forward() {
     echo ""
 
     ssm_pids=()
+    bastion_pids=()
 
+    # Chain with the existing EXIT trap (setup_aws_config cleanup)
+    _prev_trap=$(trap -p EXIT | sed "s/^trap -- '//;s/' EXIT$//")
     cleanup() {
     echo ""
     echo "Stopping all port-forward sessions..."
     for pid in "${ssm_pids[@]}"; do
         kill "$pid" 2>/dev/null || true
     done
+    for pid in "${bastion_pids[@]}"; do
+        kill "$pid" 2>/dev/null || true
+        wait "$pid" 2>/dev/null || true
+    done
+    eval "$_prev_trap"
     }
     trap cleanup EXIT
 
@@ -483,6 +507,7 @@ cmd_port_forward() {
             --container bastion \
             --interactive \
             --command "kubectl port-forward svc/${k8s_svc} ${remote_port}:${k8s_svc_port} -n ${k8s_ns} --address 0.0.0.0" &
+        bastion_pids+=($!)
     done
 
     echo ""
@@ -614,20 +639,25 @@ REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 # All commands need vault + jq for account ID fetch
 case "${1:-help}" in
     bastion)
-        for tool in vault jq aws; do
+        for tool in vault jq uv aws; do
             command -v "$tool" >/dev/null 2>&1 || die "Missing required tool: $tool"
         done
         ;;
     port-forward)
-        for tool in vault jq aws lsof; do
+        for tool in vault jq uv aws lsof; do
             command -v "$tool" >/dev/null 2>&1 || die "Missing required tool: $tool"
         done
         ;;
-    shell|e2e|collect-logs)
-        for tool in vault jq; do
+    shell|e2e)
+        for tool in vault jq uv aws; do
             command -v "$tool" >/dev/null 2>&1 || die "Missing required tool: $tool"
         done
         ensure_image
+        ;;
+    collect-logs)
+        for tool in vault jq uv aws; do
+            command -v "$tool" >/dev/null 2>&1 || die "Missing required tool: $tool"
+        done
         ;;
 esac
 
