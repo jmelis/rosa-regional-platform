@@ -7,7 +7,8 @@ set -euo pipefail
 # Fallback cleanup for when terraform destroy does not fully tear down
 # resources after ephemeral tests.
 #
-# Credentials are mounted at /var/run/rosa-credentials/ by ci-operator.
+# AWS credentials are expected via AWS profiles (AWS_CONFIG_FILE must be set).
+# In CI, source ci/setup-aws-profiles.sh before running this script.
 #
 # All three account purges run in parallel to reduce wall-clock time.
 # Per-account logs are written to ARTIFACT_DIR for the Prow artifacts UI.
@@ -18,7 +19,6 @@ DRY_RUN=false
 export AWS_PAGER=""
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-CREDS_DIR="/var/run/rosa-credentials"
 PURGE_SCRIPT="${SCRIPT_DIR}/janitor/purge-aws-account.sh"
 
 LOG_DIR="${ARTIFACT_DIR:-/tmp}/janitor-logs"
@@ -35,34 +35,17 @@ FAILED=0
 
 # purge_regional runs aws-nuke against the regional ephemeral account.
 purge_regional() {
-  AWS_ACCESS_KEY_ID="$(cat "${CREDS_DIR}/regional_access_key")" \
-  AWS_SECRET_ACCESS_KEY="$(cat "${CREDS_DIR}/regional_secret_key")" \
-    "${PURGE_SCRIPT}" "${PURGE_ARGS[@]+"${PURGE_ARGS[@]}"}"
+  AWS_PROFILE=rrp-rc "${PURGE_SCRIPT}" "${PURGE_ARGS[@]+"${PURGE_ARGS[@]}"}"
 }
 
 # purge_management runs aws-nuke against the management ephemeral account.
 purge_management() {
-  AWS_ACCESS_KEY_ID="$(cat "${CREDS_DIR}/management_access_key")" \
-  AWS_SECRET_ACCESS_KEY="$(cat "${CREDS_DIR}/management_secret_key")" \
-    "${PURGE_SCRIPT}" "${PURGE_ARGS[@]+"${PURGE_ARGS[@]}"}"
+  AWS_PROFILE=rrp-mc "${PURGE_SCRIPT}" "${PURGE_ARGS[@]+"${PURGE_ARGS[@]}"}"
 }
 
-# purge_central assumes the central CI role and runs aws-nuke.
+# purge_central runs aws-nuke against the central ephemeral account.
 purge_central() {
-  local key secret token
-  read -r key secret token <<< "$(
-    AWS_ACCESS_KEY_ID="$(cat "${CREDS_DIR}/central_access_key")" \
-    AWS_SECRET_ACCESS_KEY="$(cat "${CREDS_DIR}/central_secret_key")" \
-    aws sts assume-role \
-      --role-arn "$(cat "${CREDS_DIR}/central_assume_role_arn")" \
-      --role-session-name "JanitorCentralPurge" \
-      --query 'Credentials.[AccessKeyId,SecretAccessKey,SessionToken]' \
-      --output text)"
-
-  AWS_ACCESS_KEY_ID="${key}" \
-  AWS_SECRET_ACCESS_KEY="${secret}" \
-  AWS_SESSION_TOKEN="${token}" \
-    "${PURGE_SCRIPT}" "${PURGE_ARGS[@]+"${PURGE_ARGS[@]}"}"
+  AWS_PROFILE=rrp-central "${PURGE_SCRIPT}" "${PURGE_ARGS[@]+"${PURGE_ARGS[@]}"}"
 }
 
 # Launch all three purges in parallel, logging output to artifact files.

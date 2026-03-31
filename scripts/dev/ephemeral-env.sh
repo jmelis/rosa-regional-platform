@@ -213,23 +213,26 @@ duration_seconds = 3600
 role_arn = arn:aws:iam::${CENTRAL_ACCOUNT}:role/OrganizationAccountAccessRole
 source_profile = rrp-ephemeral-admin
 region = us-east-1
+duration_seconds = 3600
 
 [profile rrp-ephemeral-rc]
 role_arn = arn:aws:iam::${RC_ACCOUNT}:role/OrganizationAccountAccessRole
 source_profile = rrp-ephemeral-admin
 region = us-east-1
+duration_seconds = 3600
 
 [profile rrp-ephemeral-mc]
 role_arn = arn:aws:iam::${MC_ACCOUNT}:role/OrganizationAccountAccessRole
 source_profile = rrp-ephemeral-admin
 region = us-east-1
+duration_seconds = 3600
 AWSCFG
 
     echo "AWS config written to: $AWS_CONFIG_FILE"
     trap "rm -rf '${_aws_config_dir}'" EXIT
 }
 
-# Resolve temporary credentials from an AWS profile for container injection.
+# Resolve temporary credentials from an AWS profile.
 # Sets: _CRED_AK, _CRED_SK, _CRED_ST
 resolve_creds() {
     local profile="$1"
@@ -240,6 +243,40 @@ resolve_creds() {
     _CRED_AK=$(echo "$creds" | jq -r '.AccessKeyId')
     _CRED_SK=$(echo "$creds" | jq -r '.SecretAccessKey')
     _CRED_ST=$(echo "$creds" | jq -r '.SessionToken // empty')
+}
+
+# Build a container-safe AWS config file with resolved static credentials.
+# credential_process won't work inside containers, so we resolve creds on the
+# host and write them as static keys into a temp config file for mounting.
+# Sets: _CONTAINER_CONFIG (path to the temp file)
+write_container_config() {
+    resolve_creds "rrp-ephemeral-central"
+    local central_ak="$_CRED_AK" central_sk="$_CRED_SK" central_st="$_CRED_ST"
+    resolve_creds "rrp-ephemeral-rc"
+    local rc_ak="$_CRED_AK" rc_sk="$_CRED_SK" rc_st="$_CRED_ST"
+    resolve_creds "rrp-ephemeral-mc"
+    local mc_ak="$_CRED_AK" mc_sk="$_CRED_SK" mc_st="$_CRED_ST"
+
+    _CONTAINER_CONFIG=$(mktemp)
+    cat > "$_CONTAINER_CONFIG" <<EOF
+[profile rrp-central]
+aws_access_key_id = ${central_ak}
+aws_secret_access_key = ${central_sk}
+aws_session_token = ${central_st}
+region = us-east-1
+
+[profile rrp-rc]
+aws_access_key_id = ${rc_ak}
+aws_secret_access_key = ${rc_sk}
+aws_session_token = ${rc_st}
+region = us-east-1
+
+[profile rrp-mc]
+aws_access_key_id = ${mc_ak}
+aws_secret_access_key = ${mc_sk}
+aws_session_token = ${mc_st}
+region = us-east-1
+EOF
 }
 
 profile_for() {
@@ -430,15 +467,9 @@ cmd_provision() {
     # Check for local config overrides
     setup_override_mount
 
-    # Fetch credentials
+    # Fetch credentials and write container config
     setup_aws_config
-
-    resolve_creds "rrp-ephemeral-central"
-    local central_ak="$_CRED_AK" central_sk="$_CRED_SK" central_st="$_CRED_ST"
-    resolve_creds "rrp-ephemeral-rc"
-    local regional_ak="$_CRED_AK" regional_sk="$_CRED_SK" regional_st="$_CRED_ST"
-    resolve_creds "rrp-ephemeral-mc"
-    local management_ak="$_CRED_AK" management_sk="$_CRED_SK" management_st="$_CRED_ST"
+    write_container_config
 
     # Print summary
     echo "Provisioning ephemeral environment..."
@@ -456,20 +487,14 @@ cmd_provision() {
     # Run the ephemeral provider
     local tmpdir
     tmpdir=$(mktemp -d)
-    trap 'rm -rf "${tmpdir:-}"' EXIT
+    trap 'rm -rf "${tmpdir:-}" "${_CONTAINER_CONFIG:-}"' EXIT
 
     local rc=0
     # shellcheck disable=SC2086
     $CONTAINER_ENGINE run --rm \
-        -e "CENTRAL_ACCESS_KEY=$central_ak" \
-        -e "CENTRAL_SECRET_KEY=$central_sk" \
-        ${central_st:+-e "CENTRAL_SESSION_TOKEN=$central_st"} \
-        -e "REGIONAL_ACCESS_KEY=$regional_ak" \
-        -e "REGIONAL_SECRET_KEY=$regional_sk" \
-        ${regional_st:+-e "REGIONAL_SESSION_TOKEN=$regional_st"} \
-        -e "MANAGEMENT_ACCESS_KEY=$management_ak" \
-        -e "MANAGEMENT_SECRET_KEY=$management_sk" \
-        ${management_st:+-e "MANAGEMENT_SESSION_TOKEN=$management_st"} \
+        -v "${_CONTAINER_CONFIG}:/tmp/aws-config:ro" \
+        -e "AWS_CONFIG_FILE=/tmp/aws-config" \
+        -e "AWS_SHARED_CREDENTIALS_FILE=/dev/null" \
         -e "GITHUB_TOKEN=$GITHUB_TOKEN" \
         $OVERRIDE_MOUNT \
         -v "${REPO_ROOT}:/workspace:ro,z" \
@@ -527,15 +552,9 @@ cmd_teardown() {
     branch=$(get_field "$ENV_LINE" BRANCH)
     region=$(get_field "$ENV_LINE" REGION)
 
-    # Fetch credentials
+    # Fetch credentials and write container config
     setup_aws_config
-
-    resolve_creds "rrp-ephemeral-central"
-    local central_ak="$_CRED_AK" central_sk="$_CRED_SK" central_st="$_CRED_ST"
-    resolve_creds "rrp-ephemeral-rc"
-    local regional_ak="$_CRED_AK" regional_sk="$_CRED_SK" regional_st="$_CRED_ST"
-    resolve_creds "rrp-ephemeral-mc"
-    local management_ak="$_CRED_AK" management_sk="$_CRED_SK" management_st="$_CRED_ST"
+    write_container_config
 
     # Print summary
     echo "Tearing down ephemeral environment..."
@@ -552,15 +571,9 @@ cmd_teardown() {
     local rc=0
     # shellcheck disable=SC2086
     $CONTAINER_ENGINE run --rm \
-        -e "CENTRAL_ACCESS_KEY=$central_ak" \
-        -e "CENTRAL_SECRET_KEY=$central_sk" \
-        ${central_st:+-e "CENTRAL_SESSION_TOKEN=$central_st"} \
-        -e "REGIONAL_ACCESS_KEY=$regional_ak" \
-        -e "REGIONAL_SECRET_KEY=$regional_sk" \
-        ${regional_st:+-e "REGIONAL_SESSION_TOKEN=$regional_st"} \
-        -e "MANAGEMENT_ACCESS_KEY=$management_ak" \
-        -e "MANAGEMENT_SECRET_KEY=$management_sk" \
-        ${management_st:+-e "MANAGEMENT_SESSION_TOKEN=$management_st"} \
+        -v "${_CONTAINER_CONFIG}:/tmp/aws-config:ro" \
+        -e "AWS_CONFIG_FILE=/tmp/aws-config" \
+        -e "AWS_SHARED_CREDENTIALS_FILE=/dev/null" \
         -e "GITHUB_TOKEN=$GITHUB_TOKEN" \
         -v "${REPO_ROOT}:/workspace:ro,z" \
         -w /workspace \
@@ -595,15 +608,9 @@ cmd_resync() {
     # Check for local config overrides
     setup_override_mount
 
-    # Fetch credentials
+    # Fetch credentials and write container config
     setup_aws_config
-
-    resolve_creds "rrp-ephemeral-central"
-    local central_ak="$_CRED_AK" central_sk="$_CRED_SK" central_st="$_CRED_ST"
-    resolve_creds "rrp-ephemeral-rc"
-    local regional_ak="$_CRED_AK" regional_sk="$_CRED_SK" regional_st="$_CRED_ST"
-    resolve_creds "rrp-ephemeral-mc"
-    local management_ak="$_CRED_AK" management_sk="$_CRED_SK" management_st="$_CRED_ST"
+    write_container_config
 
     # Print summary
     echo "Resyncing ephemeral environment..."
@@ -617,15 +624,9 @@ cmd_resync() {
     # Run resync
     # shellcheck disable=SC2086
     $CONTAINER_ENGINE run --rm \
-        -e "CENTRAL_ACCESS_KEY=$central_ak" \
-        -e "CENTRAL_SECRET_KEY=$central_sk" \
-        ${central_st:+-e "CENTRAL_SESSION_TOKEN=$central_st"} \
-        -e "REGIONAL_ACCESS_KEY=$regional_ak" \
-        -e "REGIONAL_SECRET_KEY=$regional_sk" \
-        ${regional_st:+-e "REGIONAL_SESSION_TOKEN=$regional_st"} \
-        -e "MANAGEMENT_ACCESS_KEY=$management_ak" \
-        -e "MANAGEMENT_SECRET_KEY=$management_sk" \
-        ${management_st:+-e "MANAGEMENT_SESSION_TOKEN=$management_st"} \
+        -v "${_CONTAINER_CONFIG}:/tmp/aws-config:ro" \
+        -e "AWS_CONFIG_FILE=/tmp/aws-config" \
+        -e "AWS_SHARED_CREDENTIALS_FILE=/dev/null" \
         -e "GITHUB_TOKEN=$GITHUB_TOKEN" \
         $OVERRIDE_MOUNT \
         -v "${REPO_ROOT}:/workspace:ro,z" \
@@ -677,17 +678,17 @@ cmd_shell() {
     api_url=$(get_field "$ENV_LINE" API_URL)
     region=$(get_field "$ENV_LINE" REGION)
 
-    # Fetch credentials
+    # Fetch credentials and write container config
     setup_aws_config
-    resolve_creds "rrp-ephemeral-rc"
-
-    local cred_flags="-e AWS_ACCESS_KEY_ID=$_CRED_AK -e AWS_SECRET_ACCESS_KEY=$_CRED_SK"
-    [[ -z "$_CRED_ST" ]] || cred_flags="$cred_flags -e AWS_SESSION_TOKEN=$_CRED_ST"
+    write_container_config
 
     # Launch interactive shell
     # shellcheck disable=SC2086
     $CONTAINER_ENGINE run --rm -it \
-        $cred_flags \
+        -v "${_CONTAINER_CONFIG}:/tmp/aws-config:ro" \
+        -e "AWS_CONFIG_FILE=/tmp/aws-config" \
+        -e "AWS_SHARED_CREDENTIALS_FILE=/dev/null" \
+        -e "AWS_PROFILE=rrp-rc" \
         -e "AWS_DEFAULT_REGION=$region" \
         -e "AWS_REGION=$region" \
         -e "API_URL=$api_url" \
@@ -1012,9 +1013,9 @@ cmd_e2e() {
     [[ -n "$api_url" ]] \
         || die "No API_URL found for ID $BUILD_ID. Was it captured during provision?"
 
-    # Fetch credentials
+    # Fetch credentials and write container config
     setup_aws_config
-    resolve_creds "rrp-ephemeral-rc"
+    write_container_config
 
     # Run tests
     echo "Running e2e tests..."
@@ -1025,12 +1026,13 @@ cmd_e2e() {
     echo "  E2E_REPO:   $e2e_repo"
 
     $CONTAINER_ENGINE run --rm \
+        -v "${_CONTAINER_CONFIG}:/tmp/aws-config:ro" \
+        -e "AWS_CONFIG_FILE=/tmp/aws-config" \
+        -e "AWS_SHARED_CREDENTIALS_FILE=/dev/null" \
         -v "${REPO_ROOT}:/workspace:ro,z" \
         -w /workspace \
+        -e "BUILD_ID=$BUILD_ID" \
         -e "BASE_URL=$api_url" \
-        -e "AWS_ACCESS_KEY_ID=$_CRED_AK" \
-        -e "AWS_SECRET_ACCESS_KEY=$_CRED_SK" \
-        ${_CRED_ST:+-e "AWS_SESSION_TOKEN=$_CRED_ST"} \
         -e "AWS_DEFAULT_REGION=$region" \
         -e "AWS_REGION=$region" \
         -e "E2E_REF=$e2e_ref" \
@@ -1053,6 +1055,7 @@ cmd_collect_logs() {
         true
 
     setup_aws_config
+    write_container_config
 
     local region
     region=$(get_field "$ENV_LINE" REGION)
@@ -1060,16 +1063,11 @@ cmd_collect_logs() {
     local ci_prefix
     ci_prefix="ci-$(echo -n "$BUILD_ID" | portable_sha256 | cut -c1-6)-"
 
-    resolve_creds "rrp-ephemeral-rc"
-    export REGIONAL_AK="$_CRED_AK"
-    export REGIONAL_SK="$_CRED_SK"
-    ${_CRED_ST:+export REGIONAL_ST="$_CRED_ST"}
-
-    resolve_creds "rrp-ephemeral-mc"
-    export MANAGEMENT_AK="$_CRED_AK"
-    export MANAGEMENT_SK="$_CRED_SK"
-    ${_CRED_ST:+export MANAGEMENT_ST="$_CRED_ST"}
-
+    # collect-cluster-logs.sh runs on the host (not in a container) but needs
+    # the standardized profile names (rrp-rc, rrp-mc). Point it at the resolved
+    # container config which has those profiles with static credentials.
+    export AWS_CONFIG_FILE="$_CONTAINER_CONFIG"
+    export AWS_SHARED_CREDENTIALS_FILE=/dev/null
     export AWS_REGION="$region"
     export CLUSTER_PREFIX="$ci_prefix"
     if [[ -n "${ARTIFACT_DIR:-}" ]]; then
