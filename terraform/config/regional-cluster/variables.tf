@@ -288,3 +288,4 @@ variable "thanos_service_account" {
   default     = "thanos-operator"
 }
 
+
