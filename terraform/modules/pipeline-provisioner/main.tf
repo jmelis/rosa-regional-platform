@@ -23,6 +23,10 @@ data "aws_codestarconnections_connection" "github" {
 resource "aws_s3_bucket" "pipeline_artifact" {
   bucket        = "${local.name_prefix}provisioner-artifacts-${data.aws_caller_identity.current.account_id}"
   force_destroy = true # Allow deletion even if bucket contains objects
+
+  lifecycle {
+    ignore_changes = [tags, tags_all]
+  }
 }
 
 resource "aws_s3_bucket_versioning" "pipeline_artifact" {

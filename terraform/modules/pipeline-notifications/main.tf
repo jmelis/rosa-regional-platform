@@ -251,12 +251,20 @@ resource "aws_lambda_function" "slack_notifier" {
       AWS_REGION_NAME         = data.aws_region.current.region
     }
   }
+
+  lifecycle {
+    ignore_changes = [tags, tags_all]
+  }
 }
 
 # CloudWatch Log Group for Lambda
 resource "aws_cloudwatch_log_group" "slack_notifier" {
   name              = "/aws/lambda/${aws_lambda_function.slack_notifier.function_name}"
   retention_in_days = local.log_retention_days
+
+  lifecycle {
+    ignore_changes = [tags, tags_all]
+  }
 }
 
 # EventBridge rule to detect CodePipeline failures
