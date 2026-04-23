@@ -153,7 +153,7 @@ collect_logs_for_cluster() {
     local account_id region
     account_id=$(aws sts get-caller-identity --query Account --output text) \
         || { echo "  Could not determine account ID"; return 1; }
-    region=$(aws configure get region 2>/dev/null || echo "${AWS_DEFAULT_REGION:-us-east-1}")
+    region="${AWS_REGION:-${AWS_DEFAULT_REGION:-$(aws configure get region 2>/dev/null || echo "us-east-1")}}"
     local s3_bucket="bastion-log-collection-${account_id}-${region}-an"
 
     ensure_logs_bucket "$account_id" "$region"
