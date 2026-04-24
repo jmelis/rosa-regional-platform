@@ -33,46 +33,53 @@
 
 ### Key Files to Create
 
-| Component | Path |
-|-----------|------|
-| Egress proxy Go module | `cmd/egress-proxy/` |
-| Proxy Dockerfile | `cmd/egress-proxy/Dockerfile` |
-| Agent Dockerfile | `cmd/agent-env/Dockerfile` |
-| CF template: agent environment (both tasks) | `cloudformation/agent-environment.yaml` |
+| Component                                                                                | Path                                     |
+| ---------------------------------------------------------------------------------------- | ---------------------------------------- |
+| Egress proxy Go module                                                                   | `cmd/egress-proxy/`                      |
+| Proxy Dockerfile                                                                         | `cmd/egress-proxy/Dockerfile`            |
+| Agent Dockerfile                                                                         | `cmd/agent-env/Dockerfile`               |
+| CF template: agent environment (both tasks)                                              | `cloudformation/agent-environment.yaml`  |
 | CF template: shared infra (VPC, ECS cluster, EC2 instance, ECR, SM, API GW, Lambda, IAM) | `cloudformation/agent-shared-infra.yaml` |
-| Provisioning Lambda | `cmd/agent-provisioner/` (Python) |
-| Bootstrap script (one-time secrets setup) | `scripts/dev/agent-bootstrap-secrets.sh` |
-| Makefile targets | Append to `Makefile` |
+| Provisioning Lambda                                                                      | `cmd/agent-provisioner/` (Python)        |
+| Bootstrap script (one-time secrets setup)                                                | `scripts/dev/agent-bootstrap-secrets.sh` |
+| Makefile targets                                                                         | Append to `Makefile`                     |
 
 ### Existing Files to Modify
 
-| File | Change |
-|------|--------|
-| `Makefile` | Add `agent-env-create`, `agent-env-destroy`, `agent-env-list`, `agent-env-refresh` targets |
-| `docs/development-environment.md` | Add agent environment section |
+| File                              | Change                                                                                     |
+| --------------------------------- | ------------------------------------------------------------------------------------------ |
+| `Makefile`                        | Add `agent-env-create`, `agent-env-destroy`, `agent-env-list`, `agent-env-refresh` targets |
+| `docs/development-environment.md` | Add agent environment section                                                              |
 
 ## Questions & Answers
 
 ### Implementation Questions
 
 ### Q1: Should the provisioning service (Lambda) be written in Go or Python?
+
 **Answer:** Python — matches ephemeral provider patterns, boto3 native, faster Lambda cold starts.
 
 ### Q2: Should the shared infrastructure be a separate CF stack?
+
 **Answer:** Yes. Two levels of CloudFormation stacks:
+
 1. **Shared infra stack** (deployed once): VPC, subnets, ECS cluster, EC2 instance (ECS-optimized AMI), ECR repositories, Secrets Manager secrets, security groups, API Gateway + Lambda provisioning service, IAM roles.
 2. **Per-session environment stack** (deployed per `POST /environments`): paired ECS tasks (proxy on Fargate + agent on EC2 capacity provider), task definitions, task-specific security groups, networking.
 
 ### Q3: Agent task: Fargate or EC2 capacity provider?
+
 **Answer:** EC2 capacity provider. The agent must run podman for container-in-container execution (running the `rosa-regional-ci` image). Fargate does not support privileged mode. The proxy runs on Fargate (lightweight, no privileged needs). A single EC2 instance with the ECS-optimized AMI is registered to the cluster for agent tasks.
 
 ### Q4: Should credential refresh be supported?
+
 **Answer:** Yes — POST /environments/{id}/refresh re-mints IP-bound STS sessions without destroying the tasks. Enables sessions beyond the 12-hour STS limit.
 
 ### Testing Questions
 
 ### Q5: Proxy testing approach?
+
 **Answer:** Unit tests only for now (domain matching, credential injection, allowlist logic, log redaction). E2e integration tests deferred to future. The real AWS deployment serves as the integration test for the PoC.
 
 ### Q6: CF/Lambda infrastructure testing?
+
 **Answer:** Manual deployment for real AWS verification. CF template validation via `aws cloudformation validate-template`. No LocalStack — real AWS deployment is the integration test for a PoC.

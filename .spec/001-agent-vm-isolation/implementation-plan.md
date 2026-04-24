@@ -17,6 +17,7 @@ The provisioning Lambda is the orchestrator — it creates CF stacks, waits for 
 Build and test the Go proxy binary before any infrastructure work. This is the most complex custom component.
 
 #### Phase 1: Go module and core proxy
+
 - [ ] Step 1: Create `cmd/egress-proxy/` with `go.mod`, `main.go`
 - [ ] Step 2: Implement the HTTP CONNECT handler that accepts tunnel requests
 - [ ] Step 3: Implement CA certificate generation at startup (self-signed, `crypto/x509`)
@@ -25,11 +26,13 @@ Build and test the Go proxy binary before any infrastructure work. This is the m
 - [ ] Step 6: Write unit tests for domain allowlist matching (exact match, wildcard suffix)
 
 #### Phase 2: Credential injection
+
 - [ ] Step 7: Implement GitHub static token injection — read `GITHUB_TOKEN` env var, inject `Authorization: Bearer` header for `github.com` and `api.github.com` requests
 - [ ] Step 8: Implement Google OAuth2 token injection — read `GCP_SA_JSON` env var, create `oauth2.TokenSource` via `golang.org/x/oauth2/google`, inject bearer token for `*-aiplatform.googleapis.com` and `oauth2.googleapis.com`
 - [ ] Step 9: Write unit tests for credential injection logic (correct header, correct domain matching, header replacement)
 
 #### Phase 3: Logging and health
+
 - [ ] Step 10: Implement structured JSON logging to stdout (fields: timestamp, source_ip, destination, method, path, status, duration_ms, credential_type). Ensure credential values are never logged.
 - [ ] Step 11: Implement `/healthz` endpoint — check GitHub token validity via `api.github.com/rate_limit`, check Google OAuth2 token via `TokenSource.Token()`
 - [ ] Step 12: Write unit tests for log redaction (verify Authorization headers are stripped)
@@ -37,6 +40,7 @@ Build and test the Go proxy binary before any infrastructure work. This is the m
   - **Expected output**: all tests pass, no credential values in test log output
 
 #### Phase 4: Container image
+
 - [ ] Step 14: Create `cmd/egress-proxy/Dockerfile` — multi-stage build: Go builder → scratch/distroless final image with static binary
 - [ ] Step 15: Build and test locally: `docker build -t agent-egress-proxy cmd/egress-proxy/`
 - [ ] Step 16: Verify container starts and `/healthz` responds (with dummy credentials)
@@ -46,6 +50,7 @@ Build and test the Go proxy binary before any infrastructure work. This is the m
 Build the agent container that includes CI tooling and Claude CLI.
 
 #### Phase 5: Agent Dockerfile
+
 - [ ] Step 17: Create `cmd/agent-env/Dockerfile` based on `rosa-regional-ci` (UBI9). Add:
   - Claude CLI installation
   - podman (for running the CI container image, replicating local developer workflow)
@@ -63,6 +68,7 @@ Build the agent container that includes CI tooling and Claude CLI.
 Deploy the one-time shared resources.
 
 #### Phase 6: Shared infra CF template
+
 - [ ] Step 20: Create `cloudformation/agent-shared-infra.yaml` with:
   - VPC with public and private subnets (or reference existing VPC)
   - ECS cluster with Fargate capacity provider (for proxy tasks)
@@ -85,6 +91,7 @@ Deploy the one-time shared resources.
 - [ ] Step 21: Validate template: `aws cloudformation validate-template --template-body file://cloudformation/agent-shared-infra.yaml`
 
 #### Phase 7: Bootstrap secrets
+
 - [ ] Step 22: Create `scripts/dev/agent-bootstrap-secrets.sh` — interactive script that prompts for each secret value and writes to Secrets Manager using the secret names from the shared infra stack
 - [ ] Step 23: Test bootstrap script against real AWS: run script, verify secrets are populated
   - **Expected output**: `aws secretsmanager get-secret-value` returns values for all 9 secrets
@@ -94,6 +101,7 @@ Deploy the one-time shared resources.
 The orchestrator that creates per-session environments.
 
 #### Phase 8: Lambda implementation
+
 - [ ] Step 24: Create `cmd/agent-provisioner/` with Python Lambda handler
 - [ ] Step 25: Implement `POST /environments` handler:
   1. Generate environment ID (short hash)
@@ -112,6 +120,7 @@ The orchestrator that creates per-session environments.
 - [ ] Step 30: Update shared infra CF template to deploy the Lambda function code (inline or S3)
 
 #### Phase 9: Per-session CF template
+
 - [ ] Step 31: Create `cloudformation/agent-environment.yaml` with:
   - ECS task definition for proxy (Fargate, image from ECR, secrets from SM, port 3128, health check, awslogs)
   - ECS task definition for agent (EC2 capacity provider, privileged mode for podman, image from ECR, environment variables including HTTPS_PROXY, awslogs, ECS Exec enabled)
@@ -124,6 +133,7 @@ The orchestrator that creates per-session environments.
 ### Milestone 5: Push Images and Deploy
 
 #### Phase 10: ECR push and shared stack deployment
+
 - [ ] Step 33: Push proxy image to ECR: `docker tag agent-egress-proxy <ecr-uri>:latest && docker push <ecr-uri>:latest`
 - [ ] Step 34: Push agent image to ECR: `docker tag agent-env <ecr-uri>:latest && docker push <ecr-uri>:latest`
 - [ ] Step 35: Deploy shared infra stack: `aws cloudformation create-stack --stack-name agent-shared-infra --template-body file://cloudformation/agent-shared-infra.yaml --capabilities CAPABILITY_IAM`
@@ -131,6 +141,7 @@ The orchestrator that creates per-session environments.
 - [ ] Step 37: Verify API Gateway endpoint is accessible
 
 #### Phase 11: End-to-end verification
+
 - [ ] Step 38: Call `POST /environments` via the API Gateway — verify CF stack creates successfully and both tasks start
 - [ ] Step 39: ECS Exec into agent task — verify Claude CLI is available
 - [ ] Step 40: From agent task, `git clone` a private repo — verify it succeeds via proxy (AC-2)
@@ -147,6 +158,7 @@ The orchestrator that creates per-session environments.
 ### Milestone 6: Makefile and Documentation
 
 #### Phase 12: Developer interface
+
 - [ ] Step 50: Add Makefile targets:
   - `agent-env-create`: call POST /environments
   - `agent-env-destroy`: call DELETE /environments/{id}
@@ -168,32 +180,32 @@ The orchestrator that creates per-session environments.
 
 ### Components to Create
 
-| Component | Path | Language | Description |
-|-----------|------|----------|-------------|
-| Egress proxy | `cmd/egress-proxy/` | Go | TLS-terminating MITM forward proxy |
-| Agent container | `cmd/agent-env/` | Dockerfile | Dev environment with CI tools + Claude CLI |
-| Provisioning Lambda | `cmd/agent-provisioner/` | Python | API handler for environment lifecycle |
-| Shared infra CF | `cloudformation/agent-shared-infra.yaml` | CF YAML | VPC, ECS, ECR, SM, API GW, Lambda, IAM |
-| Per-session CF | `cloudformation/agent-environment.yaml` | CF YAML | Proxy + agent task pair |
-| Bootstrap script | `scripts/dev/agent-bootstrap-secrets.sh` | Bash | One-time secrets population |
+| Component           | Path                                     | Language   | Description                                |
+| ------------------- | ---------------------------------------- | ---------- | ------------------------------------------ |
+| Egress proxy        | `cmd/egress-proxy/`                      | Go         | TLS-terminating MITM forward proxy         |
+| Agent container     | `cmd/agent-env/`                         | Dockerfile | Dev environment with CI tools + Claude CLI |
+| Provisioning Lambda | `cmd/agent-provisioner/`                 | Python     | API handler for environment lifecycle      |
+| Shared infra CF     | `cloudformation/agent-shared-infra.yaml` | CF YAML    | VPC, ECS, ECR, SM, API GW, Lambda, IAM     |
+| Per-session CF      | `cloudformation/agent-environment.yaml`  | CF YAML    | Proxy + agent task pair                    |
+| Bootstrap script    | `scripts/dev/agent-bootstrap-secrets.sh` | Bash       | One-time secrets population                |
 
 ### Components to Modify
 
-| Component | Path | Change |
-|-----------|------|--------|
-| Makefile | `Makefile` | Add agent-* targets |
-| Dev docs | `docs/development-environment.md` | Add agent environment section |
+| Component | Path                              | Change                        |
+| --------- | --------------------------------- | ----------------------------- |
+| Makefile  | `Makefile`                        | Add agent-\* targets          |
+| Dev docs  | `docs/development-environment.md` | Add agent environment section |
 
 ### API Changes
 
 New API Gateway endpoints (IAM-authenticated):
 
-| Method | Path | Description |
-|--------|------|-------------|
-| POST | `/environments` | Create new agent environment (proxy + agent task pair) |
-| GET | `/environments` | List active environments |
-| DELETE | `/environments/{id}` | Destroy environment (delete CF stack) |
-| POST | `/environments/{id}/refresh` | Re-mint IP-bound STS credentials |
+| Method | Path                         | Description                                            |
+| ------ | ---------------------------- | ------------------------------------------------------ |
+| POST   | `/environments`              | Create new agent environment (proxy + agent task pair) |
+| GET    | `/environments`              | List active environments                               |
+| DELETE | `/environments/{id}`         | Destroy environment (delete CF stack)                  |
+| POST   | `/environments/{id}/refresh` | Re-mint IP-bound STS credentials                       |
 
 ## Testing Strategy
 

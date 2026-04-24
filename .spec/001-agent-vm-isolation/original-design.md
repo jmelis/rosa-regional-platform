@@ -143,19 +143,19 @@ The IAM policy attached to the agent's assumed role includes a source IP conditi
 
 ```json
 {
-    "Version": "2012-10-17",
-    "Statement": [
-        {
-            "Effect": "Deny",
-            "Action": "*",
-            "Resource": "*",
-            "Condition": {
-                "NotIpAddress": {
-                    "aws:SourceIp": "<VM1-IP>/32"
-                }
-            }
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Deny",
+      "Action": "*",
+      "Resource": "*",
+      "Condition": {
+        "NotIpAddress": {
+          "aws:SourceIp": "<VM1-IP>/32"
         }
-    ]
+      }
+    }
+  ]
 }
 ```
 
@@ -197,16 +197,16 @@ sequenceDiagram
 
 ### Threat Model
 
-| Threat | Mitigated? | Detail |
-| --- | --- | --- |
-| Credential exfiltration (AWS) | Yes | STS creds are IP-bound; useless from any other host |
-| Credential exfiltration (GitHub) | Yes | Token never exists on VM 1; proxy injects it |
-| Credential exfiltration (Google) | Yes | SA JSON never exists on VM 1; proxy handles OAuth |
-| LLM misuses AWS creds from VM 1 | Partially | STS role should be scoped to minimum actions (resync only); the LLM can still make valid API calls from the VM |
-| LLM pushes malicious code via GitHub | Partially | Proxy logs all requests; branch protection and PR reviews provide a gate; the LLM can push but cannot merge |
-| Supply chain via modified workspace | Partially | The ephemeral provider is baked into the CI container image and is not mounted from the workspace; the LLM cannot modify the resync tooling |
-| Prompt injection causing unintended actions | No | The LLM can still take actions within its granted access; monitoring and circuit breakers are the mitigation |
-| Egress proxy compromise | No | If VM 2 is compromised, all credentials are exposed; VM 2 should have no inbound access except from VM 1 |
+| Threat                                      | Mitigated? | Detail                                                                                                                                      |
+| ------------------------------------------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| Credential exfiltration (AWS)               | Yes        | STS creds are IP-bound; useless from any other host                                                                                         |
+| Credential exfiltration (GitHub)            | Yes        | Token never exists on VM 1; proxy injects it                                                                                                |
+| Credential exfiltration (Google)            | Yes        | SA JSON never exists on VM 1; proxy handles OAuth                                                                                           |
+| LLM misuses AWS creds from VM 1             | Partially  | STS role should be scoped to minimum actions (resync only); the LLM can still make valid API calls from the VM                              |
+| LLM pushes malicious code via GitHub        | Partially  | Proxy logs all requests; branch protection and PR reviews provide a gate; the LLM can push but cannot merge                                 |
+| Supply chain via modified workspace         | Partially  | The ephemeral provider is baked into the CI container image and is not mounted from the workspace; the LLM cannot modify the resync tooling |
+| Prompt injection causing unintended actions | No         | The LLM can still take actions within its granted access; monitoring and circuit breakers are the mitigation                                |
+| Egress proxy compromise                     | No         | If VM 2 is compromised, all credentials are exposed; VM 2 should have no inbound access except from VM 1                                    |
 
 ### What This Architecture Does NOT Prevent
 

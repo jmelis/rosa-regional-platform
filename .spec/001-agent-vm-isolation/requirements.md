@@ -15,6 +15,7 @@ An AWS-native architecture with three components managed by ECS:
 Each dev environment is a CloudFormation stack containing both tasks as a pair, created and destroyed via the provisioning API.
 
 **Evolution path:**
+
 1. **Day 1:** Developer calls API → CF stack creates proxy + agent task pair → ECS Exec in → run Claude CLI interactively
 2. **Day N:** Developer (or Jira webhook) calls API with a ticket + prompt → CF stack creates task pair → agent works autonomously → opens PR when done
 
@@ -51,8 +52,8 @@ Each dev environment is a CloudFormation stack containing both tasks as a pair, 
 - FR-3.1: Expose an API (API Gateway + Lambda) authenticated with the developer's AWS IAM credentials.
 - FR-3.2: On `POST /environments`: create a CloudFormation stack that provisions both the proxy and agent ECS tasks as a pair.
 - FR-3.3: Read raw AWS credentials (for the three ephemeral accounts) from Secrets Manager. These are the static keys that were previously in Vault.
-- FR-3.4: After the agent task is running with a public IP (via ECS awsvpc networking + public IP assignment or NAT), mint IP-bound STS sessions for all three accounts (central, regional, management) using `aws:SourceIp = <task-public-IP>/32` as the session policy condition.
-- FR-3.5: Inject the IP-bound STS credentials into the agent task (via ECS Exec `SendCommand` or by writing to a shared EFS volume). Write them to the AWS credentials file with named profiles (`central`, `regional`, `management`).
+- FR-3.4: After the agent task is running, determine the egress IP that AWS APIs will see for outbound traffic. For agent tasks on the EC2 capacity provider (which do not get public IPs on task ENIs), this is the EC2 host instance's public IP or the NAT gateway EIP. Mint IP-bound STS sessions for all three accounts (central, regional, management) using `aws:SourceIp = <egress-IP>/32` as the session policy condition.
+- FR-3.5: Inject the IP-bound STS credentials into the agent task via ECS Exec (`ExecuteCommand`). Write them to the AWS credentials file with named profiles (`central`, `regional`, `management`).
 - FR-3.6: Configure the agent task's `HTTPS_PROXY` to point at the paired proxy task endpoint.
 - FR-3.7: On `DELETE /environments/{id}`: delete the CloudFormation stack (stops both tasks, cleans up resources).
 - FR-3.8: On `GET /environments`: list active environments with status, task IDs, IP, and creation time.
@@ -64,10 +65,10 @@ Each dev environment is a CloudFormation stack containing both tasks as a pair, 
 - FR-4.1: Each dev environment is a self-contained CloudFormation stack.
 - FR-4.2: Stack includes: ECS task definitions for both proxy (Fargate) and agent (EC2 capacity provider, privileged mode), security groups, IAM task roles, and networking configuration.
 - FR-4.3: Stack parameters: task size (CPU/memory), repos to clone, session duration, developer identity tag.
-- FR-4.4: Stack outputs: task ARNs, ECS cluster, agent public IP, ECS Exec connection details.
+- FR-4.4: Stack outputs: task ARNs, ECS cluster, agent egress IP, ECS Exec connection details.
 - FR-4.5: The stack is disposable — `delete-stack` cleanly removes all resources.
 - FR-4.6: Both tasks run in the same VPC/subnet with awsvpc networking.
-- FR-4.7: Networking: the agent security group allows egress only to the proxy task and AWS API endpoints (via VPC endpoints or NAT). No unrestricted internet access from the agent.
+- FR-4.7: Networking: the agent security group allows egress only to the proxy task and AWS API endpoints. The EC2 host instance's public IP or NAT gateway EIP serves as the deterministic egress IP for STS `aws:SourceIp` binding. No unrestricted internet access from the agent.
 
 ### FR-5: Secrets Management
 

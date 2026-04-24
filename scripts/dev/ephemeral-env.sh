@@ -218,12 +218,13 @@ fetch_creds() {
 
     # If all credential env vars are already set, skip Vault entirely.
     local all_set=true
+    local missing_keys=""
     for key in "${VAULT_CRED_KEYS[@]}"; do
         local upper_key
-        upper_key=$(echo "$key" | tr 'a-z' 'A-Z')
+        upper_key=$(echo "$key" | tr '[:lower:]' '[:upper:]')
         if [[ -z "${!upper_key:-}" ]]; then
             all_set=false
-            break
+            missing_keys="$missing_keys $upper_key"
         fi
     done
 
@@ -231,7 +232,7 @@ fetch_creds() {
         echo "Using pre-set credentials from environment."
         for key in "${VAULT_CRED_KEYS[@]}"; do
             local upper_key
-            upper_key=$(echo "$key" | tr 'a-z' 'A-Z')
+            upper_key=$(echo "$key" | tr '[:lower:]' '[:upper:]')
             local val="${!upper_key}"
             CRED_FLAGS="$CRED_FLAGS -e ${upper_key}=${val}"
 
@@ -246,6 +247,7 @@ fetch_creds() {
         return
     fi
 
+    echo "Missing credential env vars:$missing_keys"
     echo "Fetching credentials from Vault (OIDC login)..."
 
     local vault_token
@@ -259,7 +261,7 @@ fetch_creds() {
             || die "Failed to fetch credential '$key' from Vault."
 
         local upper_key
-        upper_key=$(echo "$key" | tr 'a-z' 'A-Z')
+        upper_key=$(echo "$key" | tr '[:lower:]' '[:upper:]')
         CRED_FLAGS="$CRED_FLAGS -e ${upper_key}=${val}"
 
         case "$key" in

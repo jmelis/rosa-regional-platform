@@ -154,7 +154,7 @@ x-ecs-task-definition:
       - container_port: 3128
         protocol: "tcp"
     health_check:
-      command: ["CMD-SHELL", "curl -f http://localhost:3128/healthz || exit 1"]
+      command: ["CMD", "/proxy", "--health-check"]
       interval: 30
       timeout: 5
       retries: 3
