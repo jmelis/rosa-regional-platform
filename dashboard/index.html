@@ -151,6 +151,15 @@
       a:hover {
         text-decoration: underline;
       }
+      .missing-reviewer {
+        background: #d1242f;
+        color: #fff;
+        padding: 0.125rem 0.5rem;
+        border-radius: 2em;
+        font-size: 0.7rem;
+        font-weight: 500;
+        white-space: nowrap;
+      }
       .pr-title {
         color: var(--text);
       }
@@ -379,7 +388,9 @@
             esc(pr.author.login) +
             "</td>" +
             "<td>" +
-            (reviewers || '<span class="empty-cell">-</span>') +
+            (reviewers || (stateKey.indexOf("review-ready") === 0
+              ? '<span class="missing-reviewer">MISSING REVIEWER</span>'
+              : '<span class="empty-cell">-</span>')) +
             "</td>" +
             '<td class="labels">' +
             labels +
