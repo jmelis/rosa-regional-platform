@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Review Dashboard - ROSA Regional Platform</title>
+    <style>
+      :root {
+        --bg: #ffffff;
+        --bg-secondary: #f6f8fa;
+        --text: #1f2328;
+        --text-secondary: #656d76;
+        --border: #d0d7de;
+        --link: #0969da;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #0d1117;
+          --bg-secondary: #161b22;
+          --text: #e6edf3;
+          --text-secondary: #8b949e;
+          --border: #30363d;
+          --link: #58a6ff;
+        }
+      }
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica,
+          Arial, sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 2rem 1rem;
+      }
+      header {
+        margin-bottom: 2rem;
+        border-bottom: 1px solid var(--border);
+        padding-bottom: 1rem;
+      }
+      header h1 {
+        font-size: 1.5rem;
+        font-weight: 600;
+      }
+      .subtitle {
+        color: var(--text-secondary);
+        font-size: 0.875rem;
+        margin-top: 0.25rem;
+      }
+      .updated {
+        color: var(--text-secondary);
+        font-size: 0.75rem;
+        margin-top: 0.5rem;
+      }
+      .label-section {
+        margin-bottom: 2.5rem;
+      }
+      .label-section > h2 {
+        font-size: 1.25rem;
+        font-weight: 600;
+        margin-bottom: 1rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+      }
+      .repo-group {
+        margin-bottom: 1.5rem;
+      }
+      .repo-group h3 {
+        font-size: 0.9rem;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+      }
+      .count {
+        background: var(--bg-secondary);
+        border: 1px solid var(--border);
+        border-radius: 2em;
+        padding: 0.125rem 0.625rem;
+        font-size: 0.75rem;
+        font-weight: 500;
+        color: var(--text-secondary);
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.875rem;
+      }
+      th {
+        text-align: left;
+        padding: 0.5rem 0.75rem;
+        border-bottom: 1px solid var(--border);
+        color: var(--text-secondary);
+        font-weight: 500;
+        font-size: 0.75rem;
+        cursor: pointer;
+        user-select: none;
+        white-space: nowrap;
+      }
+      th:hover {
+        color: var(--text);
+      }
+      th .sort-arrow {
+        display: inline-block;
+        width: 1em;
+        text-align: center;
+        opacity: 0.4;
+      }
+      th.sorted .sort-arrow {
+        opacity: 1;
+      }
+      td {
+        padding: 0.625rem 0.75rem;
+        border-bottom: 1px solid var(--border);
+        vertical-align: middle;
+      }
+      tr:hover td {
+        background: var(--bg-secondary);
+      }
+      a {
+        color: var(--link);
+        text-decoration: none;
+      }
+      a:hover {
+        text-decoration: underline;
+      }
+      .pr-title {
+        color: var(--text);
+      }
+      .pr-title:hover {
+        color: var(--link);
+      }
+      .labels {
+        display: flex;
+        gap: 0.25rem;
+        flex-wrap: wrap;
+      }
+      .label {
+        display: inline-block;
+        padding: 0.125rem 0.5rem;
+        border-radius: 2em;
+        font-size: 0.7rem;
+        font-weight: 500;
+        white-space: nowrap;
+      }
+      .time {
+        white-space: nowrap;
+        color: var(--text-secondary);
+      }
+      .empty {
+        color: var(--text-secondary);
+        font-style: italic;
+        padding: 1rem 0;
+      }
+      .error {
+        color: #f85149;
+        padding: 1rem 0;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>Review Dashboard</h1>
+      <div class="subtitle">ROSA Regional Platform</div>
+      <div class="updated" id="updated"></div>
+    </header>
+    <main>
+      <section class="label-section">
+        <h2>Review Ready <span class="count" id="rr-count">-</span></h2>
+        <div id="review-ready"><span class="empty">Loading...</span></div>
+      </section>
+      <section class="label-section">
+        <h2>Discussion Needed <span class="count" id="hw-count">-</span></h2>
+        <div id="help-wanted"><span class="empty">Loading...</span></div>
+      </section>
+    </main>
+    <script>
+      var SHORT = {
+        "rosa-regional-platform": "platform",
+        "rosa-regional-platform-api": "api",
+        "rosa-regional-platform-cli": "cli",
+        "rosa-regional-platform-internal": "internal",
+      };
+
+      // Sort state per container element, keyed by repo name
+      var sortState = {};
+
+      fetch("./data.json")
+        .then(function (r) {
+          if (!r.ok) throw new Error("Failed to load data");
+          return r.json();
+        })
+        .then(render)
+        .catch(function (err) {
+          document.getElementById("review-ready").innerHTML =
+            '<div class="error">Failed to load dashboard data: ' +
+            esc(err.message) +
+            "</div>";
+          document.getElementById("help-wanted").innerHTML = "";
+        });
+
+      function render(data) {
+        document.getElementById("updated").textContent =
+          "Last updated " + timeAgo(data.updated);
+        document.getElementById("rr-count").textContent =
+          data.review_ready.length;
+        document.getElementById("hw-count").textContent =
+          data.help_wanted.length;
+        renderSection("review-ready", data.review_ready);
+        renderSection("help-wanted", data.help_wanted);
+      }
+
+      function renderSection(containerId, prs) {
+        var container = document.getElementById(containerId);
+        if (prs.length === 0) {
+          container.innerHTML =
+            '<div class="empty">No open PRs with this label.</div>';
+          return;
+        }
+
+        var groups = groupByRepo(prs);
+        container.innerHTML = "";
+
+        // Sort repo names so order is stable
+        var repoNames = Object.keys(groups).sort();
+        for (var i = 0; i < repoNames.length; i++) {
+          var repoName = repoNames[i];
+          var repoPrs = groups[repoName];
+          var shortName = SHORT[repoName] || repoName;
+          var stateKey = containerId + "/" + repoName;
+
+          // Initialize sort state: default sort by createdAt ascending (oldest first)
+          if (!sortState[stateKey]) {
+            sortState[stateKey] = { col: "createdAt", dir: "asc" };
+          }
+
+          var div = document.createElement("div");
+          div.className = "repo-group";
+          div.setAttribute("data-state-key", stateKey);
+          div.setAttribute("data-repo", repoName);
+
+          var h3 = document.createElement("h3");
+          h3.innerHTML =
+            esc(shortName) +
+            ' <span class="count">' +
+            repoPrs.length +
+            "</span>";
+          div.appendChild(h3);
+
+          var tableDiv = document.createElement("div");
+          tableDiv.className = "table-container";
+          div.appendChild(tableDiv);
+
+          container.appendChild(div);
+
+          renderTable(stateKey, repoPrs, tableDiv);
+        }
+      }
+
+      function renderTable(stateKey, prs, container) {
+        var state = sortState[stateKey];
+        var sorted = sortPrs(prs, state.col, state.dir);
+
+        var cols = [
+          { key: "number", label: "#" },
+          { key: "title", label: "PR" },
+          { key: "author", label: "Author" },
+          { key: "labels", label: "Labels" },
+          { key: "createdAt", label: "Created" },
+          { key: "updatedAt", label: "Updated" },
+        ];
+
+        var thead = "<thead><tr>";
+        for (var c = 0; c < cols.length; c++) {
+          var col = cols[c];
+          var sortable = col.key !== "labels";
+          var isSorted = state.col === col.key;
+          var arrow = "";
+          if (sortable) {
+            arrow = isSorted
+              ? state.dir === "asc"
+                ? " &#9650;"
+                : " &#9660;"
+              : "";
+          }
+          thead +=
+            "<th" +
+            (sortable
+              ? ' data-col="' + col.key + '" class="' + (isSorted ? "sorted" : "") + '"'
+              : "") +
+            ">" +
+            col.label +
+            (sortable
+              ? '<span class="sort-arrow">' + arrow + "</span>"
+              : "") +
+            "</th>";
+        }
+        thead += "</tr></thead>";
+
+        var tbody = "<tbody>";
+        for (var i = 0; i < sorted.length; i++) {
+          var pr = sorted[i];
+          var labels = pr.labels
+            .map(function (l) {
+              return (
+                '<span class="label" style="' +
+                labelStyle(l) +
+                '">' +
+                esc(l.name) +
+                "</span>"
+              );
+            })
+            .join("");
+
+          tbody +=
+            "<tr>" +
+            "<td>" +
+            '<a href="' +
+            esc(pr.url) +
+            '" target="_blank" rel="noopener">#' +
+            pr.number +
+            "</a></td>" +
+            "<td>" +
+            '<a class="pr-title" href="' +
+            esc(pr.url) +
+            '" target="_blank" rel="noopener">' +
+            esc(pr.title) +
+            "</a></td>" +
+            "<td>" +
+            esc(pr.author.login) +
+            "</td>" +
+            '<td class="labels">' +
+            labels +
+            "</td>" +
+            '<td class="time" title="' +
+            new Date(pr.createdAt).toLocaleString() +
+            '">' +
+            timeAgo(pr.createdAt) +
+            "</td>" +
+            '<td class="time" title="' +
+            new Date(pr.updatedAt).toLocaleString() +
+            '">' +
+            timeAgo(pr.updatedAt) +
+            "</td>" +
+            "</tr>";
+        }
+        tbody += "</tbody>";
+
+        container.innerHTML = "<table>" + thead + tbody + "</table>";
+
+        // Bind sort handlers
+        var ths = container.querySelectorAll("th[data-col]");
+        for (var t = 0; t < ths.length; t++) {
+          ths[t].addEventListener(
+            "click",
+            (function (col) {
+              return function () {
+                var s = sortState[stateKey];
+                if (s.col === col) {
+                  s.dir = s.dir === "asc" ? "desc" : "asc";
+                } else {
+                  s.col = col;
+                  s.dir = "asc";
+                }
+                renderTable(stateKey, prs, container);
+              };
+            })(ths[t].getAttribute("data-col")),
+          );
+        }
+
+      }
+
+      function groupByRepo(prs) {
+        var groups = {};
+        for (var i = 0; i < prs.length; i++) {
+          var repo = prs[i].repository.name;
+          if (!groups[repo]) groups[repo] = [];
+          groups[repo].push(prs[i]);
+        }
+        return groups;
+      }
+
+      function sortPrs(prs, col, dir) {
+        var copy = prs.slice();
+        copy.sort(function (a, b) {
+          var va, vb;
+          if (col === "author") {
+            va = a.author.login.toLowerCase();
+            vb = b.author.login.toLowerCase();
+          } else if (col === "number") {
+            va = a.number;
+            vb = b.number;
+          } else if (col === "createdAt" || col === "updatedAt") {
+            va = new Date(a[col]).getTime();
+            vb = new Date(b[col]).getTime();
+          } else if (col === "title") {
+            va = a.title.toLowerCase();
+            vb = b.title.toLowerCase();
+          } else {
+            va = a[col];
+            vb = b[col];
+          }
+          if (va < vb) return dir === "asc" ? -1 : 1;
+          if (va > vb) return dir === "asc" ? 1 : -1;
+          return 0;
+        });
+        return copy;
+      }
+
+      function labelStyle(label) {
+        if (!label.color) return "";
+        var r = parseInt(label.color.substr(0, 2), 16);
+        var g = parseInt(label.color.substr(2, 2), 16);
+        var b = parseInt(label.color.substr(4, 2), 16);
+        var lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+        var fg = lum > 0.5 ? "#000" : "#fff";
+        return "background-color: #" + label.color + "; color: " + fg + ";";
+      }
+
+      function timeAgo(dateStr) {
+        var seconds = Math.floor((Date.now() - new Date(dateStr)) / 1000);
+        var intervals = [
+          [31536000, "y"],
+          [2592000, "mo"],
+          [604800, "w"],
+          [86400, "d"],
+          [3600, "h"],
+          [60, "m"],
+        ];
+        for (var i = 0; i < intervals.length; i++) {
+          var count = Math.floor(seconds / intervals[i][0]);
+          if (count >= 1) return count + intervals[i][1] + " ago";
+        }
+        return "just now";
+      }
+
+      function esc(str) {
+        var d = document.createElement("div");
+        d.textContent = str;
+        return d.innerHTML;
+      }
+    </script>
+  </body>
+</html>
