@@ -21,6 +21,8 @@ provider "aws" {
       app-code      = var.app_code
       service-phase = var.service_phase
       cost-center   = var.cost_center
+      owner         = var.owner
+      organization  = var.organization
       environment   = var.environment
     }
   }

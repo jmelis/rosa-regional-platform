@@ -22,6 +22,8 @@
 #   APP_CODE                  - Application code for tagging
 #   SERVICE_PHASE             - Service phase (dev/staging/prod)
 #   COST_CENTER               - Cost center for billing
+#   OWNER                     - Resource owner team identifier
+#   ORGANIZATION              - Organization name for cost attribution
 #   ENABLE_BASTION            - "true" or "false"
 #   ENVIRONMENT_DOMAIN        - Environment domain (from pipeline-provisioner-inputs/terraform.json)
 #   For management mode only:
@@ -58,6 +60,8 @@ echo "Loading deploy config from: $DEPLOY_CONFIG_FILE"
 APP_CODE=$(jq -r '.app_code // "infra"' "$DEPLOY_CONFIG_FILE")
 SERVICE_PHASE=$(jq -r '.service_phase // "dev"' "$DEPLOY_CONFIG_FILE")
 COST_CENTER=$(jq -r '.cost_center // "000"' "$DEPLOY_CONFIG_FILE")
+OWNER=$(jq -r '.owner // "placeholder"' "$DEPLOY_CONFIG_FILE")
+ORGANIZATION=$(jq -r '.organization // "placeholder"' "$DEPLOY_CONFIG_FILE")
 
 # Normalize enable_bastion to "true"/"false"
 _RAW_BASTION=$(jq -r '.enable_bastion // false' "$DEPLOY_CONFIG_FILE")
@@ -106,10 +110,12 @@ export DEPLOY_CONFIG_FILE
 export APP_CODE
 export SERVICE_PHASE
 export COST_CENTER
+export OWNER
+export ORGANIZATION
 export ENABLE_BASTION
 export ENVIRONMENT_DOMAIN
 
-echo "  APP_CODE=$APP_CODE SERVICE_PHASE=$SERVICE_PHASE COST_CENTER=$COST_CENTER"
+echo "  APP_CODE=$APP_CODE SERVICE_PHASE=$SERVICE_PHASE COST_CENTER=$COST_CENTER OWNER=$OWNER ORGANIZATION=$ORGANIZATION"
 echo "  ENABLE_BASTION=$ENABLE_BASTION"
 [ -n "${ENVIRONMENT_DOMAIN:-}" ] && echo "  ENVIRONMENT_DOMAIN=$ENVIRONMENT_DOMAIN"
 [[ "$_DEPLOY_MODE" == "management" ]] && echo "  CLUSTER_ID=$CLUSTER_ID REGIONAL_AWS_ACCOUNT_ID=$REGIONAL_AWS_ACCOUNT_ID"

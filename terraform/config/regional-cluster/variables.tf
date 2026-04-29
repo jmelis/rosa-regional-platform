@@ -58,6 +58,16 @@ variable "cost_center" {
   type        = string
 }
 
+variable "owner" {
+  description = "Resource owner team identifier"
+  type        = string
+}
+
+variable "organization" {
+  description = "Organization name for cost attribution"
+  type        = string
+}
+
 # =============================================================================
 # ArgoCD Bootstrap Configuration Variables
 # =============================================================================

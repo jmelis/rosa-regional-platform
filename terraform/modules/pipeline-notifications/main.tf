@@ -253,7 +253,7 @@ resource "aws_lambda_function" "slack_notifier" {
   }
 
   lifecycle {
-    ignore_changes = [tags, tags_all]
+    ignore_changes = [tags["managed_by_integration"], tags["app"]]
   }
 }
 
@@ -263,7 +263,7 @@ resource "aws_cloudwatch_log_group" "slack_notifier" {
   retention_in_days = local.log_retention_days
 
   lifecycle {
-    ignore_changes = [tags, tags_all]
+    ignore_changes = [tags["managed_by_integration"], tags["app"]]
   }
 }
 

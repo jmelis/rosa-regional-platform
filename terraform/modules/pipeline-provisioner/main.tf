@@ -4,6 +4,17 @@ provider "aws" {
   # FIPS endpoints exist only in US and GovCloud regions; non-US regions (EU, AP, SA)
   # do not support FIPS endpoints and will fail if this is set to true.
   use_fips_endpoint = can(regex("^(us|us-gov)-", var.region)) ? true : false
+
+  default_tags {
+    tags = {
+      "app-code"      = var.app_code
+      "cost-center"   = var.cost_center
+      "owner"         = var.owner
+      "service-phase" = var.service_phase
+      "organization"  = var.organization
+      "environment"   = var.environment
+    }
+  }
 }
 
 data "aws_caller_identity" "current" {}
@@ -23,10 +34,6 @@ data "aws_codestarconnections_connection" "github" {
 resource "aws_s3_bucket" "pipeline_artifact" {
   bucket        = "${local.name_prefix}provisioner-artifacts-${data.aws_caller_identity.current.account_id}"
   force_destroy = true # Allow deletion even if bucket contains objects
-
-  lifecycle {
-    ignore_changes = [tags, tags_all]
-  }
 }
 
 resource "aws_s3_bucket_versioning" "pipeline_artifact" {
