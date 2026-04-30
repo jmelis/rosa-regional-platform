@@ -104,6 +104,22 @@ Running `scripts/render.py` generates:
 Templates in `config/templates/` map 1-1 to deploy/ output files. Each template
 receives the fully-merged config values as its Jinja2 context.
 
+## SSM Parameter References
+
+Config values prefixed with `ssm:///` are resolved at pipeline runtime from AWS
+Systems Manager Parameter Store. These parameters are **not** managed in this
+repo — they are created by the account-minter in the internal repo.
+
+| Parameter Path                                      | Description                          | Created By     |
+| --------------------------------------------------- | ------------------------------------ | -------------- |
+| `/infra/<env>/<region>/account_id`                  | Regional cluster AWS account ID      | account-minter |
+| `/infra/<env>/<region>/<cluster_prefix>/account_id` | Management cluster AWS account ID    | account-minter |
+| `/infra/<env>/<region>/ou-path`                     | AWS Organizations OU path for region | account-minter |
+
+If you need to reference a new SSM parameter in config, ensure it is first
+created by the account-minter (or another provisioner in the internal repo),
+then add the `ssm:///` reference in the appropriate config field.
+
 ## Examples
 
 ### defaults.yaml
