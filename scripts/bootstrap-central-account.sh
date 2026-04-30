@@ -308,7 +308,6 @@ if [ -f "$_PROVISIONER_JSON" ]; then
     COST_CENTER=$(jq -r '.cost_center // "000"' "$_PROVISIONER_JSON")
     OWNER=$(jq -r '.owner // "placeholder"' "$_PROVISIONER_JSON")
     ORGANIZATION=$(jq -r '.organization // "placeholder"' "$_PROVISIONER_JSON")
-    MANAGED_BY_INTEGRATION=$(jq -r '.managed_by_integration // "terraform"' "$_PROVISIONER_JSON")
     APP=$(jq -r '.app // "rosa-regionality"' "$_PROVISIONER_JSON")
     echo "Loaded tags from: $_PROVISIONER_JSON"
 else
@@ -317,7 +316,6 @@ else
     COST_CENTER="000"
     OWNER="placeholder"
     ORGANIZATION="placeholder"
-    MANAGED_BY_INTEGRATION="terraform"
     APP="rosa-regionality"
     echo "ℹ️  No rendered config found at $_PROVISIONER_JSON, using default tags"
 fi
@@ -335,7 +333,6 @@ service_phase         = "${SERVICE_PHASE}"
 cost_center           = "${COST_CENTER}"
 owner                  = "${OWNER}"
 organization           = "${ORGANIZATION}"
-managed_by_integration = "${MANAGED_BY_INTEGRATION}"
 app                    = "${APP}"
 EOF
 

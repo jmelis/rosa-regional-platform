@@ -10,7 +10,7 @@ provider "aws" {
       "app"                    = var.app
       "app-code"               = var.app_code
       "cost-center"            = var.cost_center
-      "managed_by_integration" = var.managed_by_integration
+      "managed_by_integration" = "https://github.com/openshift-online/rosa-regional-platform/terraform/modules/pipeline-provisioner"
       "organization"           = var.organization
       "owner"                  = var.owner
       "service-phase"          = var.service_phase
