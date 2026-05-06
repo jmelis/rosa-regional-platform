@@ -344,12 +344,14 @@ for region_dir in deploy/${ENVIRONMENT}/*/; do
             RC_COST_CENTER=$(jq -r '.cost_center // "000"' "$PROVISIONER_TF")
             RC_OWNER=$(jq -r '.owner // "placeholder"' "$PROVISIONER_TF")
             RC_ORGANIZATION=$(jq -r '.organization // "placeholder"' "$PROVISIONER_TF")
+            RC_APP=$(jq -r '.app // "rosa-regionality"' "$PROVISIONER_TF")
         else
             RC_APP_CODE="infra"
             RC_SERVICE_PHASE="dev"
             RC_COST_CENTER="000"
             RC_OWNER="placeholder"
             RC_ORGANIZATION="placeholder"
+            RC_APP="rosa-regionality"
         fi
 
         # Build terraform apply command with variables (array for safe expansion)
@@ -376,6 +378,7 @@ for region_dir in deploy/${ENVIRONMENT}/*/; do
             -var="cost_center=${RC_COST_CENTER}"
             -var="owner=${RC_OWNER}"
             -var="organization=${RC_ORGANIZATION}"
+            -var="app=${RC_APP}"
         )
         # DNS configuration (optional)
         [ -n "$ENVIRONMENT_HOSTED_ZONE_ID" ] && TF_ARGS+=( -var="environment_hosted_zone_id=${ENVIRONMENT_HOSTED_ZONE_ID}" )

@@ -104,6 +104,12 @@ variable "organization" {
   default     = "placeholder"
 }
 
+variable "app" {
+  description = "Application identifier for resource tagging"
+  type        = string
+  default     = "rosa-regionality"
+}
+
 # =============================================================================
 # Notifications Configuration
 # =============================================================================
