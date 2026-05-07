@@ -87,10 +87,17 @@ spec:
                     --field-selector=status.phase=Running -o jsonpath='{.items[0].metadata.name}')
                   echo "Using maestro pod: $MAESTRO_POD"
 
-                  # Get all bundle IDs upfront
-                  ALL_BUNDLE_IDS=$(maestro_exec resourcebundle list --rest-url="$MAESTRO_URL" --size=200 -o json 2>/dev/null \
-                    | grep -o '"href": "/api/maestro/v1/resource-bundles/[^"]*"' \
-                    | sed 's|.*/||;s|"||g')
+                  # Get all bundle IDs upfront (paginate to collect every page)
+                  ALL_BUNDLE_IDS=""
+                  page=1
+                  while true; do
+                    PAGE_URL="${MAESTRO_URL}/api/maestro/v1/resource-bundles?page=${page}&size=200&search=deleted_at+IS+NULL"
+                    PAGE_RAW=$(wget -qO- "$PAGE_URL") || { echo "ERROR: wget failed for $PAGE_URL (exit $?)"; exit 1; }
+                    PAGE_IDS=$(echo "$PAGE_RAW" | grep -o '"href":[ ]*"/api/maestro/v1/resource-bundles/[^"]*"' | sed 's|.*/||;s|"||g') || true
+                    [ -z "$PAGE_IDS" ] && break
+                    ALL_BUNDLE_IDS="${ALL_BUNDLE_IDS} ${PAGE_IDS}"
+                    page=$((page + 1))
+                  done
 
                   # Delete each cluster and its resource bundles
                   echo "$STALE_CLUSTERS" | while IFS='|' read -r id name; do
@@ -119,6 +126,32 @@ spec:
                     echo "  Deleted $DELETED_COUNT resource bundle(s)"
                     echo "Done cleaning up cluster: $name"
                   done
+
+                  # Clean up orphaned resource bundles (bundles whose cluster no longer exists in the DB)
+                  set +e
+                  echo ""
+                  echo "--- Cleaning up orphaned resource bundles ---"
+                  if ! LIVE_IDS=$(psql -tA -c "SELECT id FROM clusters WHERE deleted_at IS NULL;"); then
+                    echo "ERROR: failed to query live clusters from DB, skipping orphan cleanup"
+                  else
+                  ORPHAN_COUNT=0
+                  for bid in $ALL_BUNDLE_IDS; do
+                    DETAIL=$(maestro_exec resourcebundle get "$bid" --rest-url="$MAESTRO_URL" -o json 2>/dev/null) || continue
+                    IS_ORPHAN=true
+                    for cid in $LIVE_IDS; do
+                      if echo "$DETAIL" | grep -q "$cid"; then
+                        IS_ORPHAN=false
+                        break
+                      fi
+                    done
+                    if [ "$IS_ORPHAN" = true ]; then
+                      echo "  Deleting orphaned bundle: $bid"
+                      maestro_exec resourcebundle delete "$bid" -y --rest-url="$MAESTRO_URL" --grpc-server-address=127.0.0.1:8090 2>&1 || echo "    WARN: failed to delete $bid"
+                      ORPHAN_COUNT=$((ORPHAN_COUNT + 1))
+                    fi
+                  done
+                  echo "Deleted $ORPHAN_COUNT orphaned resource bundle(s)"
+                  fi
 
                   echo ""
                   echo "=== Cleanup complete ==="

@@ -6,7 +6,7 @@ global:
 clusterCleanup:
   namespace: hyperfleet-system
 
-  schedule: "0 */6 * * *"
+  schedule: "0 0 * * *"
 
   image:
     repository: postgres
